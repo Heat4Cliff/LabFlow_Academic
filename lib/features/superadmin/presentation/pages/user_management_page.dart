@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../auth/domain/user_profile.dart';
 import '../../data/user_management_service.dart';
-
-import 'package:go_router/go_router.dart';
 
 class UserManagementPage extends StatefulWidget {
   const UserManagementPage({super.key});
@@ -55,19 +54,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
         },
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final created = await context.push<bool>('/superadmin/users/create');
-
-          if (!context.mounted) return;
-
-          if (created == true) {
-            ScaffoldMessenger.of(context)
-              ..hideCurrentSnackBar()
-              ..showSnackBar(
-                const SnackBar(content: Text('Pengguna berhasil dibuat.')),
-              );
-          }
-        },
+        onPressed: _openCreateUser,
         backgroundColor: const Color(0xFF111111),
         foregroundColor: Colors.white,
         icon: const Icon(Icons.person_add_alt_1_rounded),
@@ -79,79 +66,129 @@ class _UserManagementPageState extends State<UserManagementPage> {
     );
   }
 
+  /// Membuka halaman pembuatan pengguna baru.
+  ///
+  /// Jika pembuatan berhasil, halaman Create User
+  /// mengembalikan nilai true.
+  Future<void> _openCreateUser() async {
+    final created = await context.push<bool>('/superadmin/users/create');
+
+    if (!mounted) return;
+
+    if (created == true) {
+      _showMessage('Pengguna berhasil dibuat.');
+    }
+  }
+
+  /// Membuka halaman Edit User berdasarkan UID Firebase.
+  ///
+  /// Result dari halaman Edit digunakan untuk menentukan
+  /// feedback yang ditampilkan pada halaman ini.
+  Future<void> _openEditUser(UserProfile user) async {
+    final result = await context.push<String>(
+      '/superadmin/users/${user.uid}/edit',
+    );
+
+    if (!mounted) return;
+
+    switch (result) {
+      case 'updated':
+        _showMessage('Pengguna berhasil diperbarui.');
+        break;
+
+      case 'suspended':
+        _showMessage('Pengguna berhasil dinonaktifkan.');
+        break;
+
+      case 'activated':
+        _showMessage('Pengguna berhasil diaktifkan kembali.');
+        break;
+    }
+  }
+
+  /// Card pengguna.
+  ///
+  /// Seluruh card dapat ditekan untuk membuka halaman Edit User.
   Widget _buildUserCard(UserProfile user) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFFE2E6DC)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          CircleAvatar(
-            radius: 24,
-            backgroundColor: const Color(0xFFEAFBCB),
-            foregroundColor: const Color(0xFF111111),
-            child: Text(
-              _initial(user.fullName),
-              style: const TextStyle(fontWeight: FontWeight.w800),
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: () {
+        _openEditUser(user);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFE2E6DC)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            CircleAvatar(
+              radius: 24,
+              backgroundColor: const Color(0xFFEAFBCB),
+              foregroundColor: const Color(0xFF111111),
+              child: Text(
+                _initial(user.fullName),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
             ),
-          ),
 
-          const SizedBox(width: 14),
+            const SizedBox(width: 14),
 
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user.fullName.isEmpty ? 'Tanpa Nama' : user.fullName,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF111111),
-                  ),
-                ),
-
-                const SizedBox(height: 4),
-
-                Text(
-                  user.email,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF6B7280),
-                  ),
-                ),
-
-                const SizedBox(height: 12),
-
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    _buildBadge(_roleLabel(user.role), const Color(0xFFEAFBCB)),
-                    _buildBadge(
-                      user.isActive ? 'Aktif' : 'Suspended',
-                      user.isActive
-                          ? const Color(0xFFE5F6EC)
-                          : const Color(0xFFFFE8E8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    user.fullName.isEmpty ? 'Tanpa Nama' : user.fullName,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                      color: Color(0xFF111111),
                     ),
-                  ],
-                ),
-              ],
-            ),
-          ),
+                  ),
 
-          IconButton(
-            tooltip: 'Detail pengguna',
-            onPressed: () {
-              _showUserDetail(user);
-            },
-            icon: const Icon(Icons.chevron_right_rounded),
-          ),
-        ],
+                  const SizedBox(height: 4),
+
+                  Text(
+                    user.email,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Color(0xFF6B7280),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      _buildBadge(
+                        _roleLabel(user.role),
+                        const Color(0xFFEAFBCB),
+                      ),
+                      _buildBadge(
+                        user.isActive ? 'Aktif' : 'Suspended',
+                        user.isActive
+                            ? const Color(0xFFE5F6EC)
+                            : const Color(0xFFFFE8E8),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(width: 8),
+
+            /// Petunjuk visual bahwa card dapat dibuka
+            /// untuk melihat dan mengubah pengguna.
+            const Icon(Icons.chevron_right_rounded, color: Color(0xFF111111)),
+          ],
+        ),
       ),
     );
   }
@@ -219,40 +256,12 @@ class _UserManagementPageState extends State<UserManagementPage> {
     );
   }
 
-  void _showUserDetail(UserProfile user) {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      backgroundColor: const Color(0xFFF6F9EF),
-      builder: (context) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 8, 24, 32),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  user.fullName,
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Text('Email: ${user.email}'),
-                const SizedBox(height: 8),
-                Text('UID: ${user.uid}'),
-                const SizedBox(height: 8),
-                Text('Role: ${_roleLabel(user.role)}'),
-                const SizedBox(height: 8),
-                Text('Status: ${user.status}'),
-              ],
-            ),
-          ),
-        );
-      },
-    );
+  /// Feedback untuk operasi Create, Update,
+  /// Suspend, maupun Activate.
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _initial(String name) {
@@ -269,10 +278,13 @@ class _UserManagementPageState extends State<UserManagementPage> {
     switch (role) {
       case 'superadmin':
         return 'Superadmin';
+
       case 'lab_admin':
         return 'Lab Admin';
+
       case 'student':
         return 'Student';
+
       default:
         return role;
     }

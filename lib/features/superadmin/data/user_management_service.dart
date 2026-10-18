@@ -5,15 +5,18 @@ import 'package:firebase_core/firebase_core.dart';
 import '../../../firebase_options.dart';
 import '../../auth/domain/user_profile.dart';
 
-/// Service khusus Superadmin untuk membaca
-/// dan mengelola data pengguna LabFlow.
+/// Service khusus Superadmin untuk mengelola pengguna LabFlow.
 class UserManagementService {
-  UserManagementService({FirebaseFirestore? firestore})
-    : _firestore = firestore ?? FirebaseFirestore.instance;
+  UserManagementService({
+    FirebaseFirestore? firestore,
+    FirebaseAuth? firebaseAuth,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
 
   final FirebaseFirestore _firestore;
+  final FirebaseAuth _firebaseAuth;
 
-  /// Mengambil seluruh pengguna LabFlow secara realtime.
+  /// Mengambil seluruh pengguna secara realtime.
   Stream<List<UserProfile>> watchUsers() {
     return _firestore.collection('users').snapshots().map((snapshot) {
       final users = snapshot.docs.map(UserProfile.fromDocument).toList();
@@ -26,15 +29,18 @@ class UserManagementService {
     });
   }
 
-  /// Membuat akun Firebase Authentication baru tanpa
-  /// mengganti session Firebase milik Superadmin.
-  ///
-  /// Proses:
-  /// 1. Membuat Firebase App secondary.
-  /// 2. Membuat akun menggunakan secondary Auth.
-  /// 3. Mendapatkan UID Firebase Authentication.
-  /// 4. Membuat profile users/{uid} di Firestore.
-  /// 5. Menutup secondary session.
+  /// Mengambil satu pengguna berdasarkan UID.
+  Future<UserProfile> getUser(String userId) async {
+    final document = await _firestore.collection('users').doc(userId).get();
+
+    if (!document.exists) {
+      throw const UserManagementException('Pengguna tidak ditemukan.');
+    }
+
+    return UserProfile.fromDocument(document);
+  }
+
+  /// Membuat akun baru tanpa mengganti session Superadmin.
   Future<UserProfile> createUser({
     required String fullName,
     required String email,
@@ -45,25 +51,13 @@ class UserManagementService {
     final cleanName = fullName.trim();
     final cleanEmail = email.trim().toLowerCase();
 
-    if (cleanName.isEmpty) {
-      throw const UserManagementException('Nama pengguna wajib diisi.');
-    }
-
-    if (!_allowedRoles.contains(role)) {
-      throw const UserManagementException('Role pengguna tidak valid.');
-    }
-
-    if (!_allowedStatuses.contains(status)) {
-      throw const UserManagementException('Status pengguna tidak valid.');
-    }
+    _validateProfile(fullName: cleanName, role: role, status: status);
 
     FirebaseApp? secondaryApp;
     FirebaseAuth? secondaryAuth;
     User? createdAuthUser;
 
     try {
-      /// Menggunakan nama unik agar secondary Firebase App
-      /// tidak berbenturan dengan proses sebelumnya.
       final secondaryAppName =
           'user-provisioning-${DateTime.now().microsecondsSinceEpoch}';
 
@@ -74,7 +68,6 @@ class UserManagementService {
 
       secondaryAuth = FirebaseAuth.instanceFor(app: secondaryApp);
 
-      /// Membuat user pada Firebase Authentication.
       final credential = await secondaryAuth.createUserWithEmailAndPassword(
         email: cleanEmail,
         password: password,
@@ -90,8 +83,6 @@ class UserManagementService {
 
       final uid = createdAuthUser.uid;
 
-      /// Profile aplikasi disimpan menggunakan UID yang sama
-      /// dengan Firebase Authentication.
       await _firestore.collection('users').doc(uid).set({
         'uid': uid,
         'email': cleanEmail,
@@ -112,13 +103,11 @@ class UserManagementService {
     } on FirebaseAuthException catch (error) {
       throw UserManagementException(_firebaseAuthMessage(error.code));
     } on FirebaseException catch (error) {
-      /// Jika Authentication berhasil tetapi Firestore gagal,
-      /// usahakan hapus akun Auth agar tidak menjadi orphan.
       if (createdAuthUser != null) {
         try {
           await createdAuthUser.delete();
         } catch (_) {
-          // Cleanup bersifat best-effort.
+          // Cleanup best-effort.
         }
       }
 
@@ -133,7 +122,7 @@ class UserManagementService {
         try {
           await createdAuthUser.delete();
         } catch (_) {
-          // Cleanup bersifat best-effort.
+          // Cleanup best-effort.
         }
       }
 
@@ -141,29 +130,155 @@ class UserManagementService {
         'Terjadi kesalahan saat membuat pengguna.',
       );
     } finally {
-      /// Secondary Auth selalu ditutup.
       if (secondaryAuth != null) {
         try {
           await secondaryAuth.signOut();
         } catch (_) {
-          // Cleanup bersifat best-effort.
+          // Cleanup best-effort.
         }
       }
 
-      /// Firebase App secondary juga dihapus setelah selesai.
       if (secondaryApp != null) {
         try {
           await secondaryApp.delete();
         } catch (_) {
-          // Cleanup bersifat best-effort.
+          // Cleanup best-effort.
         }
       }
     }
   }
 
-  /// Role yang boleh dibuat melalui halaman User Management.
+  /// Memperbarui profile pengguna.
   ///
-  /// Superadmin baru sengaja tidak bisa dibuat dari form umum.
+  /// Email sengaja tidak ikut diperbarui karena email juga
+  /// tersimpan pada Firebase Authentication.
+  Future<void> updateUser({
+    required String userId,
+    required String fullName,
+    required String role,
+    required String status,
+  }) async {
+    final cleanName = fullName.trim();
+
+    _validateProfile(fullName: cleanName, role: role, status: status);
+
+    final userReference = _firestore.collection('users').doc(userId);
+
+    final userDocument = await userReference.get();
+
+    if (!userDocument.exists) {
+      throw const UserManagementException('Pengguna tidak ditemukan.');
+    }
+
+    final data = userDocument.data()!;
+
+    /// Superadmin bootstrap tidak boleh diturunkan role-nya
+    /// atau dinonaktifkan melalui halaman umum.
+    if (data['role'] == 'superadmin') {
+      throw const UserManagementException(
+        'Akun Superadmin utama tidak dapat diubah melalui halaman ini.',
+      );
+    }
+
+    /// Jika Lab Admin hendak diubah menjadi Student,
+    /// jangan biarkan masih mempunyai membership aktif.
+    if (data['role'] == 'lab_admin' && role != 'lab_admin') {
+      final membership = await _firestore
+          .collection('lab_memberships')
+          .where('userId', isEqualTo: userId)
+          .where('active', isEqualTo: true)
+          .limit(1)
+          .get();
+
+      if (membership.docs.isNotEmpty) {
+        throw const UserManagementException(
+          'Role Lab Admin tidak dapat diubah karena masih memiliki '
+          'membership laboratorium aktif. Nonaktifkan assignment terlebih dahulu.',
+        );
+      }
+    }
+
+    await userReference.update({
+      'fullName': cleanName,
+      'role': role,
+      'status': status,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Soft-delete pengguna.
+  ///
+  /// Karena client Firebase tidak boleh menghapus akun Auth user lain,
+  /// akun dinonaktifkan melalui status Firestore.
+  Future<void> suspendUser(String userId) async {
+    final currentUser = _firebaseAuth.currentUser;
+
+    if (currentUser == null) {
+      throw const UserManagementException('Sesi Superadmin tidak ditemukan.');
+    }
+
+    if (currentUser.uid == userId) {
+      throw const UserManagementException(
+        'Anda tidak dapat menonaktifkan akun sendiri.',
+      );
+    }
+
+    final reference = _firestore.collection('users').doc(userId);
+
+    final document = await reference.get();
+
+    if (!document.exists) {
+      throw const UserManagementException('Pengguna tidak ditemukan.');
+    }
+
+    final data = document.data()!;
+
+    if (data['role'] == 'superadmin') {
+      throw const UserManagementException(
+        'Akun Superadmin tidak dapat dinonaktifkan melalui halaman ini.',
+      );
+    }
+
+    await reference.update({
+      'status': 'suspended',
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// Mengaktifkan kembali akun suspended.
+  Future<void> activateUser(String userId) async {
+    final reference = _firestore.collection('users').doc(userId);
+
+    final document = await reference.get();
+
+    if (!document.exists) {
+      throw const UserManagementException('Pengguna tidak ditemukan.');
+    }
+
+    await reference.update({
+      'status': 'active',
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  void _validateProfile({
+    required String fullName,
+    required String role,
+    required String status,
+  }) {
+    if (fullName.isEmpty) {
+      throw const UserManagementException('Nama pengguna wajib diisi.');
+    }
+
+    if (!_allowedRoles.contains(role)) {
+      throw const UserManagementException('Role pengguna tidak valid.');
+    }
+
+    if (!_allowedStatuses.contains(status)) {
+      throw const UserManagementException('Status pengguna tidak valid.');
+    }
+  }
+
   static const Set<String> _allowedRoles = {'student', 'lab_admin'};
 
   static const Set<String> _allowedStatuses = {'active', 'suspended'};
@@ -180,12 +295,10 @@ class UserManagementService {
         return 'Password terlalu lemah.';
 
       case 'network-request-failed':
-        return 'Tidak dapat terhubung ke Firebase. '
-            'Periksa koneksi internet.';
+        return 'Tidak dapat terhubung ke Firebase. Periksa koneksi internet.';
 
       case 'too-many-requests':
-        return 'Terlalu banyak percobaan. '
-            'Silakan coba kembali nanti.';
+        return 'Terlalu banyak percobaan. Silakan coba kembali nanti.';
 
       default:
         return 'Gagal membuat akun pengguna.';
@@ -193,8 +306,6 @@ class UserManagementService {
   }
 }
 
-/// Exception khusus proses User Management agar pesan
-/// error dapat ditampilkan dengan jelas pada UI.
 class UserManagementException implements Exception {
   const UserManagementException(this.message);
 
