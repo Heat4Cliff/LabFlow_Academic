@@ -11,57 +11,69 @@ class AuthService {
   final FirebaseAuth _firebaseAuth;
   final FirebaseFirestore _firestore;
 
+  /// User Firebase yang sedang login.
+  User? get currentUser => _firebaseAuth.currentUser;
+
   /// Login menggunakan Firebase Authentication.
   ///
-  /// Setelah kredensial berhasil diverifikasi Firebase,
+  /// Setelah email dan password berhasil diverifikasi,
   /// profil pengguna dibaca dari Firestore berdasarkan UID.
   Future<UserProfile> signIn({
     required String email,
     required String password,
   }) async {
     try {
-      final credential = await _firebaseAuth.signInWithEmailAndPassword(
+      await _firebaseAuth.signInWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
 
-      final user = credential.user;
-
-      if (user == null) {
-        throw const AuthServiceException(
-          'Firebase tidak mengembalikan data pengguna.',
-        );
-      }
-
-      final profileDocument = await _firestore
-          .collection('users')
-          .doc(user.uid)
-          .get();
-
-      if (!profileDocument.exists) {
-        await _firebaseAuth.signOut();
-
-        throw const AuthServiceException(
-          'Profil akun tidak ditemukan di database.',
-        );
-      }
-
-      final profile = UserProfile.fromDocument(profileDocument);
-
-      if (!profile.isActive) {
-        await _firebaseAuth.signOut();
-
-        throw const AuthServiceException(
-          'Akun Anda sedang dinonaktifkan. Hubungi Admin Lab.',
-        );
-      }
-
-      return profile;
+      return await getCurrentUserProfile();
     } on FirebaseAuthException catch (error) {
       throw AuthServiceException(_firebaseMessage(error.code));
     }
   }
 
+  /// Membaca profil user yang sedang login dari Firestore.
+  ///
+  /// Method ini juga digunakan oleh halaman berdasarkan role
+  /// supaya akses tidak hanya bergantung pada routing UI.
+  Future<UserProfile> getCurrentUserProfile() async {
+    final user = _firebaseAuth.currentUser;
+
+    if (user == null) {
+      throw const AuthServiceException(
+        'Sesi login tidak ditemukan. Silakan masuk kembali.',
+      );
+    }
+
+    final profileDocument = await _firestore
+        .collection('users')
+        .doc(user.uid)
+        .get();
+
+    if (!profileDocument.exists) {
+      await signOut();
+
+      throw const AuthServiceException(
+        'Profil akun tidak ditemukan di database.',
+      );
+    }
+
+    final profile = UserProfile.fromDocument(profileDocument);
+
+    if (!profile.isActive) {
+      await signOut();
+
+      throw const AuthServiceException(
+        'Akun Anda sedang dinonaktifkan. Hubungi Admin Lab.',
+      );
+    }
+
+    return profile;
+  }
+
+  /// Keluar dari Firebase Authentication.
   Future<void> signOut() async {
     await _firebaseAuth.signOut();
   }

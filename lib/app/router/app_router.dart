@@ -5,6 +5,10 @@ import '../../features/dashboard/presentation/pages/dashboard_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../../features/splash/presentation/pages/splash_page.dart';
 import '../../features/superadmin/presentation/pages/superadmin_dashboard_page.dart';
+import '../../features/superadmin/presentation/pages/user_management_page.dart';
+import '../../features/superadmin/presentation/pages/create_user_page.dart';
+import '../../features/lab_admin/presentation/pages/lab_admin_dashboard_page.dart';
+import '../../features/student/presentation/pages/student_home_page.dart';
 
 /// Membuat router utama LabFlow.
 ///
@@ -37,6 +41,26 @@ GoRouter createAppRouter({required String initialLocation}) {
       GoRoute(
         path: '/superadmin',
         builder: (context, state) => const SuperadminDashboardPage(),
+      ),
+
+      GoRoute(
+        path: '/superadmin/users',
+        builder: (context, state) => const UserManagementPage(),
+      ),
+
+      GoRoute(
+        path: '/superadmin/users/create',
+        builder: (context, state) => const CreateUserPage(),
+      ),
+
+      GoRoute(
+        path: '/student',
+        builder: (context, state) => const StudentHomePage(),
+      ),
+
+      GoRoute(
+        path: '/lab-admin',
+        builder: (context, state) => const LabAdminDashboardPage(),
       ),
     ],
   );

@@ -29,18 +29,76 @@ class SuperadminDashboardPage extends StatelessWidget {
           ),
         ],
       ),
-      body: const Padding(
-        padding: EdgeInsets.all(20),
+      body: Padding(
+        padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            const Text(
               'Dashboard Superadmin',
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
             ),
-            SizedBox(height: 12),
-            Text(
-              'Firebase Authentication dan role Superadmin berhasil diverifikasi.',
+
+            const SizedBox(height: 8),
+
+            const Text(
+              'Kelola pengguna dan konfigurasi global LabFlow.',
+              style: TextStyle(color: Color(0xFF6B7280)),
+            ),
+
+            const SizedBox(height: 24),
+
+            InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () {
+                context.push('/superadmin/users');
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: const Color(0xFFE2E6DC)),
+                ),
+                child: const Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 24,
+                      backgroundColor: Color(0xFFB9F33D),
+                      foregroundColor: Color(0xFF111111),
+                      child: Icon(Icons.people_outline_rounded),
+                    ),
+
+                    SizedBox(width: 16),
+
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Manajemen Pengguna',
+                            style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Lihat dan kelola akun LabFlow.',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Color(0xFF6B7280),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    Icon(Icons.chevron_right_rounded),
+                  ],
+                ),
+              ),
             ),
           ],
         ),

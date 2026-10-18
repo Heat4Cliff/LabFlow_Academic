@@ -67,19 +67,11 @@ class _LoginPageState extends State<LoginPage> {
           break;
 
         case 'lab_admin':
-          await _authService.signOut();
-
-          if (!mounted) return;
-
-          _showMessage('Dashboard Lab Admin belum tersedia.');
+          context.go('/lab-admin');
           break;
 
         case 'student':
-          await _authService.signOut();
-
-          if (!mounted) return;
-
-          _showMessage('Dashboard Student belum tersedia.');
+          context.go('/student');
           break;
 
         default:
