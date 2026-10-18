@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "587596054037",
+    "project_id": "labflow-academic-2026",
+    "storage_bucket": "labflow-academic-2026.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:587596054037:android:9de151a13f13bfe3f1981c",
+        "android_client_info": {
+          "package_name": "id.ac.unugha.labflow"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBAD-TQzIa3JZ_qkZYmqD-g0M6V2ozeZX4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
