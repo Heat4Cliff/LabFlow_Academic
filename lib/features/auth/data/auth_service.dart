@@ -30,20 +30,27 @@ class AuthService {
 
       return await getCurrentUserProfile();
     } on FirebaseAuthException catch (error) {
-      throw AuthServiceException(_firebaseMessage(error.code));
+      throw AuthServiceException(
+        _firebaseMessage(error.code),
+        code: _firebaseErrorCode(error.code),
+      );
     }
   }
 
   /// Membaca profil user yang sedang login dari Firestore.
   ///
-  /// Method ini juga digunakan oleh halaman berdasarkan role
-  /// supaya akses tidak hanya bergantung pada routing UI.
+  /// Method ini menjadi pemeriksaan authoritative untuk session,
+  /// keberadaan profil, dan status aktif akun.
+  ///
+  /// Halaman berdasarkan role tetap memanggil method ini agar
+  /// akses tidak hanya bergantung pada routing UI.
   Future<UserProfile> getCurrentUserProfile() async {
     final user = _firebaseAuth.currentUser;
 
     if (user == null) {
       throw const AuthServiceException(
         'Sesi login tidak ditemukan. Silakan masuk kembali.',
+        code: AuthServiceException.sessionNotFound,
       );
     }
 
@@ -57,16 +64,20 @@ class AuthService {
 
       throw const AuthServiceException(
         'Profil akun tidak ditemukan di database.',
+        code: AuthServiceException.profileNotFound,
       );
     }
 
     final profile = UserProfile.fromDocument(profileDocument);
 
     if (!profile.isActive) {
+      /// Session Firebase langsung diakhiri agar akun suspended
+      /// tidak tetap memiliki session aktif pada client.
       await signOut();
 
       throw const AuthServiceException(
         'Akun Anda sedang dinonaktifkan. Hubungi Admin Lab.',
+        code: AuthServiceException.accountSuspended,
       );
     }
 
@@ -78,13 +89,30 @@ class AuthService {
     await _firebaseAuth.signOut();
   }
 
+  /// Mengubah kode error Firebase Authentication menjadi kode
+  /// domain yang dapat dikenali presentation layer.
+  ///
+  /// Firebase `user-disabled` dipetakan ke account-suspended
+  /// supaya menggunakan state UI yang sama dengan status
+  /// suspended pada profil Firestore.
+  String _firebaseErrorCode(String code) {
+    switch (code) {
+      case 'user-disabled':
+        return AuthServiceException.accountSuspended;
+
+      default:
+        return code;
+    }
+  }
+
+  /// Pesan aman yang ditampilkan ke pengguna.
   String _firebaseMessage(String code) {
     switch (code) {
       case 'invalid-email':
         return 'Format email tidak valid.';
 
       case 'user-disabled':
-        return 'Akun ini telah dinonaktifkan.';
+        return 'Akun Anda sedang dinonaktifkan. Hubungi Admin Lab.';
 
       case 'user-not-found':
       case 'wrong-password':
@@ -103,10 +131,25 @@ class AuthService {
   }
 }
 
+/// Exception domain untuk proses authentication LabFlow.
+///
+/// `code` digunakan oleh presentation layer untuk menentukan
+/// state UI tanpa bergantung pada pencocokan isi message.
 class AuthServiceException implements Exception {
-  const AuthServiceException(this.message);
+  const AuthServiceException(this.message, {this.code = unknown});
+
+  /// Kode domain yang digunakan lintas authentication flow.
+  static const String sessionNotFound = 'session-not-found';
+  static const String profileNotFound = 'profile-not-found';
+  static const String accountSuspended = 'account-suspended';
+  static const String unknown = 'unknown';
 
   final String message;
+  final String code;
+
+  /// Memudahkan pemeriksaan kondisi suspended tanpa
+  /// membandingkan string message pada presentation layer.
+  bool get isAccountSuspended => code == accountSuspended;
 
   @override
   String toString() => message;

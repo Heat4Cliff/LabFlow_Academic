@@ -46,3 +46,22 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local Android configuration
+android/local.properties
+local.properties
+
+# Signing keys
+*.jks
+*.keystore
+key.properties
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Firebase / Google server credentials
+*service-account*.json
+*serviceAccount*.json
+firebase-adminsdk-*.json

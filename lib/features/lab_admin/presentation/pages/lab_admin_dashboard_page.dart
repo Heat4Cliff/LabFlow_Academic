@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../shared/presentation/dialogs/labflow_confirmation_dialog.dart';
+import '../../../../shared/presentation/states/labflow_access_denied_state.dart';
+import '../../../../shared/presentation/states/labflow_connection_error_state.dart';
+import '../../../../shared/presentation/states/labflow_loading_state.dart';
+import '../../../../shared/presentation/states/labflow_suspended_account_state.dart';
 import '../../../auth/data/auth_service.dart';
 import '../../../auth/domain/user_profile.dart';
 
@@ -19,16 +24,52 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
   @override
   void initState() {
     super.initState();
-
     _profileFuture = _authService.getCurrentUserProfile();
   }
 
   Future<void> _logout() async {
+    /// Menampilkan konfirmasi sebelum session Firebase
+    /// benar-benar diakhiri.
+    final confirmed = await showLogoutConfirmationDialog(context: context);
+
+    /// Jika pengguna memilih "Tetap di Sini"
+    /// atau menutup dialog, proses logout dibatalkan.
+    if (!confirmed || !mounted) {
+      return;
+    }
+
     await _authService.signOut();
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     context.go('/login');
+  }
+
+  Future<void> _goToOwnHome(UserProfile profile) async {
+    switch (profile.role) {
+      case 'superadmin':
+        context.go('/superadmin');
+        return;
+
+      case 'student':
+        context.go('/student');
+        return;
+
+      case 'lab_admin':
+        context.go('/lab-admin');
+        return;
+
+      default:
+        await _authService.signOut();
+
+        if (!mounted) {
+          return;
+        }
+
+        context.go('/login');
+    }
   }
 
   @override
@@ -54,11 +95,29 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
         future: _profileFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const LabFlowLoadingState(
+              title: 'Memuat dashboard',
+              message: 'Menyiapkan data akun Lab Admin.',
+            );
           }
 
           if (snapshot.hasError) {
-            return _buildErrorState(snapshot.error.toString());
+            final error = snapshot.error;
+
+            if (error is AuthServiceException && error.isAccountSuspended) {
+              return LabFlowSuspendedAccountState(
+                onAction: () {
+                  context.go('/login');
+                },
+              );
+            }
+
+            return const LabFlowConnectionErrorState(
+              title: 'Dashboard tidak dapat dimuat',
+              message:
+                  'Data akun Lab Admin tidak dapat diambil saat ini. '
+                  'Periksa koneksi Anda lalu coba lagi.',
+            );
           }
 
           final profile = snapshot.data;
@@ -68,7 +127,16 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
           }
 
           if (!profile.isLabAdmin) {
-            return _buildAccessDenied();
+            return LabFlowAccessDeniedState(
+              title: 'Akses Lab Admin ditolak',
+              message:
+                  'Akun ini tidak memiliki role Lab Admin sehingga '
+                  'tidak dapat mengakses halaman Lab Admin.',
+              actionLabel: 'Ke Halaman Saya',
+              onAction: () {
+                _goToOwnHome(profile);
+              },
+            );
           }
 
           return _buildContent(profile);
@@ -91,16 +159,12 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
               color: Color(0xFF111111),
             ),
           ),
-
           const SizedBox(height: 8),
-
           const Text(
             'Dashboard operasional Lab Admin.',
             style: TextStyle(color: Color(0xFF6B7280)),
           ),
-
           const SizedBox(height: 24),
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
@@ -116,27 +180,19 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
                   'Akun Lab Admin',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                 ),
-
                 const SizedBox(height: 16),
-
                 _profileRow('Nama', profile.fullName),
-
                 _profileRow('Email', profile.email),
-
                 _profileRow('Role', 'Lab Admin'),
-
                 _profileRow(
                   'Status',
                   profile.isActive ? 'Active' : profile.status,
                 ),
-
                 _profileRow('UID', profile.uid),
               ],
             ),
           ),
-
           const SizedBox(height: 20),
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
@@ -157,9 +213,7 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
               ],
             ),
           ),
-
           const SizedBox(height: 20),
-
           const Text(
             'Membership laboratorium akan ditambahkan pada tahap berikutnya.',
             style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
@@ -193,18 +247,8 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
     );
   }
 
-  Widget _buildAccessDenied() {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(32),
-        child: Text(
-          'Akses ditolak. Akun ini bukan Lab Admin.',
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-
+  /// Digunakan untuk kondisi data tidak tersedia,
+  /// bukan kegagalan authorization atau koneksi.
   Widget _buildErrorState(String message) {
     return Center(
       child: Padding(

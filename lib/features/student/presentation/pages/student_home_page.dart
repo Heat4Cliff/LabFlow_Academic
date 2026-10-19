@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../shared/presentation/states/labflow_access_denied_state.dart';
+import '../../../../shared/presentation/states/labflow_connection_error_state.dart';
+import '../../../../shared/presentation/states/labflow_loading_state.dart';
+import '../../../../shared/presentation/states/labflow_suspended_account_state.dart';
 import '../../../auth/data/auth_service.dart';
 import '../../../auth/domain/user_profile.dart';
 
@@ -19,16 +23,32 @@ class _StudentHomePageState extends State<StudentHomePage> {
   @override
   void initState() {
     super.initState();
-
     _profileFuture = _authService.getCurrentUserProfile();
   }
 
   Future<void> _logout() async {
     await _authService.signOut();
 
-    if (!mounted) return;
+    if (!mounted) {
+      return;
+    }
 
     context.go('/login');
+  }
+
+  void _goToOwnHome(UserProfile profile) {
+    switch (profile.role) {
+      case 'superadmin':
+        context.go('/superadmin');
+        return;
+
+      case 'lab_admin':
+        context.go('/lab-admin');
+        return;
+
+      default:
+        context.go('/login');
+    }
   }
 
   @override
@@ -54,11 +74,29 @@ class _StudentHomePageState extends State<StudentHomePage> {
         future: _profileFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const LabFlowLoadingState(
+              title: 'Memuat beranda',
+              message: 'Menyiapkan layanan laboratorium untuk Anda.',
+            );
           }
 
           if (snapshot.hasError) {
-            return _buildErrorState(snapshot.error.toString());
+            final error = snapshot.error;
+
+            if (error is AuthServiceException && error.isAccountSuspended) {
+              return LabFlowSuspendedAccountState(
+                onAction: () {
+                  context.go('/login');
+                },
+              );
+            }
+
+            return const LabFlowConnectionErrorState(
+              title: 'Beranda tidak dapat dimuat',
+              message:
+                  'Data akun Student tidak dapat diambil saat ini. '
+                  'Periksa koneksi Anda lalu coba lagi.',
+            );
           }
 
           final profile = snapshot.data;
@@ -68,7 +106,16 @@ class _StudentHomePageState extends State<StudentHomePage> {
           }
 
           if (!profile.isStudent) {
-            return _buildAccessDenied();
+            return LabFlowAccessDeniedState(
+              title: 'Akses Student ditolak',
+              message:
+                  'Akun ini tidak memiliki role Student sehingga '
+                  'tidak dapat mengakses halaman Student.',
+              actionLabel: 'Ke Halaman Saya',
+              onAction: () {
+                _goToOwnHome(profile);
+              },
+            );
           }
 
           return _buildStudentContent(profile);
@@ -91,16 +138,12 @@ class _StudentHomePageState extends State<StudentHomePage> {
               color: Color(0xFF111111),
             ),
           ),
-
           const SizedBox(height: 8),
-
           const Text(
             'Selamat datang di LabFlow Student.',
             style: TextStyle(color: Color(0xFF6B7280)),
           ),
-
           const SizedBox(height: 24),
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
@@ -116,27 +159,19 @@ class _StudentHomePageState extends State<StudentHomePage> {
                   'Profil Terverifikasi',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                 ),
-
                 const SizedBox(height: 16),
-
                 _profileRow('Nama', profile.fullName),
-
                 _profileRow('Email', profile.email),
-
                 _profileRow('Role', 'Student'),
-
                 _profileRow(
                   'Status',
                   profile.isActive ? 'Active' : profile.status,
                 ),
-
                 _profileRow('UID', profile.uid),
               ],
             ),
           ),
-
           const SizedBox(height: 20),
-
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(20),
@@ -186,18 +221,8 @@ class _StudentHomePageState extends State<StudentHomePage> {
     );
   }
 
-  Widget _buildAccessDenied() {
-    return const Center(
-      child: Padding(
-        padding: EdgeInsets.all(32),
-        child: Text(
-          'Akses ditolak. Akun ini bukan Student.',
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-
+  /// Digunakan untuk kondisi data tidak tersedia,
+  /// bukan kegagalan authorization atau koneksi.
   Widget _buildErrorState(String message) {
     return Center(
       child: Padding(

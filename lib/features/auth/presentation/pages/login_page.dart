@@ -4,27 +4,24 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/config/app_config.dart';
 import '../../../../core/validators/auth_validator.dart';
+import '../../../../shared/presentation/notifications/labflow_notification.dart';
+import '../../../../shared/presentation/states/labflow_suspended_account_state.dart';
 import '../../data/auth_service.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
-
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-
   final TextEditingController _emailController = TextEditingController();
-
   final TextEditingController _passwordController = TextEditingController();
-
   final AuthService _authService = AuthService();
-
   bool _isLoading = false;
   bool _obscurePassword = true;
-
+  bool _showSuspendedAccount = false;
   @override
   void dispose() {
     _emailController.dispose();
@@ -42,53 +39,59 @@ class _LoginPageState extends State<LoginPage> {
   /// 5. User diarahkan berdasarkan role.
   Future<void> _login() async {
     FocusScope.of(context).unfocus();
-
     final isValid = _formKey.currentState?.validate() ?? false;
-
     if (!isValid || _isLoading) {
       return;
     }
-
     setState(() {
       _isLoading = true;
+      _showSuspendedAccount = false;
     });
-
     try {
       final profile = await _authService.signIn(
         email: _emailController.text,
         password: _passwordController.text,
       );
-
       if (!mounted) return;
-
       switch (profile.role) {
         case 'superadmin':
           context.go('/superadmin');
           break;
-
         case 'lab_admin':
           context.go('/lab-admin');
           break;
-
         case 'student':
           context.go('/student');
           break;
-
         default:
           await _authService.signOut();
-
           if (!mounted) return;
-
-          _showMessage('Role akun tidak dikenali.');
+          _showNotification(
+            'Role akun tidak dikenali.',
+            title: 'Akses ditolak',
+            type: LabFlowNotificationType.warning,
+          );
       }
     } on AuthServiceException catch (error) {
       if (!mounted) return;
-
-      _showMessage(error.message);
+      if (error.isAccountSuspended) {
+        setState(() {
+          _showSuspendedAccount = true;
+        });
+        return;
+      }
+      _showNotification(
+        error.message,
+        title: 'Login gagal',
+        type: LabFlowNotificationType.warning,
+      );
     } catch (_) {
       if (!mounted) return;
-
-      _showMessage('Terjadi kesalahan saat proses login.');
+      _showNotification(
+        'Terjadi kesalahan saat proses login.',
+        title: 'Login gagal',
+        type: LabFlowNotificationType.error,
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -98,41 +101,70 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
+  /// Kembali ke form login setelah akun suspended ditampilkan.
+  void _returnToLogin() {
+    FocusScope.of(context).unfocus();
+    _passwordController.clear();
+    setState(() {
+      _showSuspendedAccount = false;
+      _isLoading = false;
+    });
+  }
+
   /// Membuka WhatsApp Admin Lab bagi mahasiswa
   /// yang belum memiliki akun LabFlow.
   Future<void> _contactAdmin() async {
     final adminNumber = AppConfig.adminWhatsAppNumber.trim();
-
     if (adminNumber.isEmpty) {
       if (!mounted) return;
-
-      _showMessage('Nomor WhatsApp Admin Lab belum dikonfigurasi.');
-
+      _showNotification(
+        'Nomor WhatsApp Admin Lab belum dikonfigurasi.',
+        title: 'Konfigurasi belum lengkap',
+        type: LabFlowNotificationType.warning,
+      );
       return;
     }
-
     const message =
         'Halo Admin Lab, saya ingin meminta bantuan terkait akun LabFlow. '
         'Saat ini saya belum memiliki akun untuk mengakses aplikasi.';
-
     final uri = Uri.https('wa.me', '/$adminNumber', {'text': message});
-
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
-
     if (!opened && mounted) {
-      _showMessage('WhatsApp tidak dapat dibuka pada perangkat ini.');
+      _showNotification(
+        'WhatsApp tidak dapat dibuka pada perangkat ini.',
+        title: 'WhatsApp tidak dapat dibuka',
+        type: LabFlowNotificationType.error,
+      );
     }
   }
 
-  /// Menampilkan pesan informasi atau error.
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+  /// Menampilkan feedback menggunakan floating notification LabFlow.
+  void _showNotification(
+    String message, {
+    required String title,
+    required LabFlowNotificationType type,
+  }) {
+    showLabFlowNotification(
+      context: context,
+      title: title,
+      message: message,
+      type: type,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_showSuspendedAccount) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF6F9EF),
+        body: SafeArea(
+          child: LabFlowSuspendedAccountState(
+            actionLabel: 'Kembali ke Login',
+            onAction: _returnToLogin,
+          ),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: const Color(0xFFF6F9EF),
       body: SafeArea(
@@ -148,13 +180,9 @@ class _LoginPageState extends State<LoginPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _buildHeader(),
-
                     const SizedBox(height: 20),
-
                     _buildIllustration(),
-
                     const SizedBox(height: 20),
-
                     const Text(
                       'Selamat Datang',
                       style: TextStyle(
@@ -164,9 +192,7 @@ class _LoginPageState extends State<LoginPage> {
                         color: Color(0xFF111111),
                       ),
                     ),
-
                     const SizedBox(height: 8),
-
                     const Text(
                       'Masuk untuk mengakses layanan\nlaboratorium.',
                       style: TextStyle(
@@ -175,32 +201,22 @@ class _LoginPageState extends State<LoginPage> {
                         color: Color(0xFF6B7280),
                       ),
                     ),
-
                     const SizedBox(height: 20),
-
                     Form(
                       key: _formKey,
                       child: Column(
                         children: [
                           _buildEmailField(),
-
                           const SizedBox(height: 16),
-
                           _buildPasswordField(),
                         ],
                       ),
                     ),
-
                     const SizedBox(height: 16),
-
                     _buildLoginButton(),
-
                     const SizedBox(height: 18),
-
                     _buildContactAdmin(),
-
                     const SizedBox(height: 20),
-
                     const Center(
                       child: Text(
                         'LabFlow Academic Project',
@@ -319,11 +335,8 @@ class _LoginPageState extends State<LoginPage> {
     required Widget suffixIcon,
   }) {
     const normalBorderColor = Color(0xFFD8DDD0);
-
     const darkColor = Color(0xFF111111);
-
     const errorColor = Color(0xFFBD3232);
-
     return InputDecoration(
       labelText: label,
       hintText: hint,

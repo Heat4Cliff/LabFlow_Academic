@@ -1,214 +1,498 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../shared/presentation/notifications/labflow_notification.dart';
+import '../../../../shared/presentation/states/labflow_connection_error_state.dart';
+import '../../../../shared/presentation/states/labflow_loading_state.dart';
+import '../../../../shared/presentation/states/labflow_no_search_results_state.dart';
 import '../../../auth/domain/user_profile.dart';
 import '../../data/user_management_service.dart';
+import '../widgets/superadmin_bottom_navigation.dart';
+
+enum _UserRoleFilter { all, student, labAdmin, superadmin }
+
+enum _UserStatusFilter { all, active, suspended }
 
 class UserManagementPage extends StatefulWidget {
   const UserManagementPage({super.key});
-
   @override
   State<UserManagementPage> createState() => _UserManagementPageState();
 }
 
 class _UserManagementPageState extends State<UserManagementPage> {
   final UserManagementService _userService = UserManagementService();
+  final TextEditingController _searchController = TextEditingController();
+  _UserRoleFilter _selectedRole = _UserRoleFilter.all;
+  _UserStatusFilter _selectedStatus = _UserStatusFilter.all;
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F9EF),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF6F9EF),
-        elevation: 0,
-        title: const Text(
-          'Manajemen Pengguna',
-          style: TextStyle(fontWeight: FontWeight.w800),
+      body: SafeArea(
+        bottom: false,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+              child: _buildHeader(),
+            ),
+            const SizedBox(height: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: _buildSearchBar(),
+            ),
+            const SizedBox(height: 18),
+            SizedBox(height: 48, child: _buildRoleFilters()),
+            const SizedBox(height: 12),
+            Expanded(
+              child: StreamBuilder<List<UserProfile>>(
+                stream: _userService.watchUsers(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting &&
+                      !snapshot.hasData) {
+                    return const LabFlowLoadingState(
+                      title: 'Memuat pengguna',
+                      message: 'Mengambil daftar pengguna terbaru.',
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return const LabFlowConnectionErrorState(
+                      title: 'Pengguna tidak dapat dimuat',
+                      message:
+                          'Data pengguna tidak dapat diambil saat ini. '
+                          'Periksa koneksi Anda lalu coba lagi.',
+                    );
+                  }
+                  final users = snapshot.data ?? <UserProfile>[];
+                  if (users.isEmpty) {
+                    return _buildEmptyState();
+                  }
+                  final filteredUsers = _filterUsers(users);
+                  if (filteredUsers.isEmpty) {
+                    return const LabFlowNoSearchResultsState(
+                      title: 'Pengguna tidak ditemukan',
+                      message:
+                          'Coba ubah pencarian atau filter yang digunakan.',
+                    );
+                  }
+                  return ListView(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 30),
+                    children: [
+                      Text(
+                        '${filteredUsers.length} pengguna',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF7A8190),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      for (
+                        int index = 0;
+                        index < filteredUsers.length;
+                        index++
+                      ) ...[
+                        _buildUserRow(filteredUsers[index]),
+                        if (index != filteredUsers.length - 1)
+                          const Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: Color(0xFFDDE2D5),
+                          ),
+                      ],
+                      const SizedBox(height: 16),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
-      body: StreamBuilder<List<UserProfile>>(
-        stream: _userService.watchUsers(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      bottomNavigationBar: const SuperadminBottomNavigation(currentIndex: 2),
+    );
+  }
 
-          if (snapshot.hasError) {
-            return _buildErrorState(snapshot.error.toString());
-          }
-
-          final users = snapshot.data ?? [];
-
-          if (users.isEmpty) {
-            return _buildEmptyState();
-          }
-
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 100),
-            itemCount: users.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 12),
-            itemBuilder: (context, index) {
-              return _buildUserCard(users[index]);
-            },
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openCreateUser,
-        backgroundColor: const Color(0xFF111111),
-        foregroundColor: Colors.white,
-        icon: const Icon(Icons.person_add_alt_1_rounded),
-        label: const Text(
-          'Tambah User',
-          style: TextStyle(fontWeight: FontWeight.w700),
+  /// Header halaman Pengguna.
+  Widget _buildHeader() {
+    return Row(
+      children: [
+        const Expanded(
+          child: Text(
+            'Pengguna',
+            style: TextStyle(
+              fontSize: 30,
+              height: 1,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF111111),
+            ),
+          ),
         ),
+        const SizedBox(width: 16),
+        Material(
+          color: Colors.white,
+          shape: const CircleBorder(),
+          child: InkWell(
+            customBorder: const CircleBorder(),
+            onTap: _openCreateUser,
+            child: const SizedBox(
+              width: 52,
+              height: 52,
+              child: Icon(
+                Icons.person_add_alt_1_rounded,
+                size: 26,
+                color: Color(0xFF111111),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Search + tombol filter status.
+  Widget _buildSearchBar() {
+    final statusFilterActive = _selectedStatus != _UserStatusFilter.all;
+    return Container(
+      height: 54,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: const Color(0xFFDDE2D5)),
+      ),
+      child: Row(
+        children: [
+          const SizedBox(width: 16),
+          const Icon(Icons.search_rounded, size: 24, color: Color(0xFF111111)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              onChanged: (_) {
+                setState(() {});
+              },
+              textInputAction: TextInputAction.search,
+              decoration: const InputDecoration(
+                hintText: 'Cari nama atau email...',
+                hintStyle: TextStyle(fontSize: 14, color: Color(0xFF8B929F)),
+                border: InputBorder.none,
+                isDense: true,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Filter status',
+            onPressed: _openStatusFilter,
+            icon: Icon(
+              Icons.tune_rounded,
+              color: statusFilterActive
+                  ? const Color(0xFF6C9B00)
+                  : const Color(0xFF111111),
+            ),
+          ),
+          const SizedBox(width: 6),
+        ],
       ),
     );
   }
 
-  /// Membuka halaman pembuatan pengguna baru.
-  ///
-  /// Jika pembuatan berhasil, halaman Create User
-  /// mengembalikan nilai true.
-  Future<void> _openCreateUser() async {
-    final created = await context.push<bool>('/superadmin/users/create');
-
-    if (!mounted) return;
-
-    if (created == true) {
-      _showMessage('Pengguna berhasil dibuat.');
-    }
-  }
-
-  /// Membuka halaman Edit User berdasarkan UID Firebase.
-  ///
-  /// Result dari halaman Edit digunakan untuk menentukan
-  /// feedback yang ditampilkan pada halaman ini.
-  Future<void> _openEditUser(UserProfile user) async {
-    final result = await context.push<String>(
-      '/superadmin/users/${user.uid}/edit',
+  /// Filter Role.
+  Widget _buildRoleFilters() {
+    return ListView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      children: [
+        _buildRoleChip(label: 'Semua', value: _UserRoleFilter.all),
+        const SizedBox(width: 8),
+        _buildRoleChip(label: 'Student', value: _UserRoleFilter.student),
+        const SizedBox(width: 8),
+        _buildRoleChip(label: 'Lab Admin', value: _UserRoleFilter.labAdmin),
+        const SizedBox(width: 8),
+        _buildRoleChip(label: 'Superadmin', value: _UserRoleFilter.superadmin),
+      ],
     );
-
-    if (!mounted) return;
-
-    switch (result) {
-      case 'updated':
-        _showMessage('Pengguna berhasil diperbarui.');
-        break;
-
-      case 'suspended':
-        _showMessage('Pengguna berhasil dinonaktifkan.');
-        break;
-
-      case 'activated':
-        _showMessage('Pengguna berhasil diaktifkan kembali.');
-        break;
-    }
   }
 
-  /// Card pengguna.
-  ///
-  /// Seluruh card dapat ditekan untuk membuka halaman Edit User.
-  Widget _buildUserCard(UserProfile user) {
+  Widget _buildRoleChip({
+    required String label,
+    required _UserRoleFilter value,
+  }) {
+    final selected = _selectedRole == value;
     return InkWell(
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(999),
+      onTap: () {
+        setState(() {
+          _selectedRole = value;
+        });
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF111111) : Colors.white,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: selected ? const Color(0xFF111111) : const Color(0xFFDDE2D5),
+          ),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: selected
+                  ? const Color(0xFFB9F33D)
+                  : const Color(0xFF111111),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Row pengguna:
+  ///
+  /// Avatar - Nama - Role + Email - Status - Arrow.
+  Widget _buildUserRow(UserProfile user) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
       onTap: () {
         _openEditUser(user);
       },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: const Color(0xFFE2E6DC)),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 14),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            CircleAvatar(
-              radius: 24,
-              backgroundColor: const Color(0xFFEAFBCB),
-              foregroundColor: const Color(0xFF111111),
+            Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAFBCB),
+                shape: BoxShape.circle,
+                border: Border.all(color: const Color(0xFF111111)),
+              ),
               child: Text(
-                _initial(user.fullName),
-                style: const TextStyle(fontWeight: FontWeight.w800),
+                _initials(user.fullName),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF111111),
+                ),
               ),
             ),
-
             const SizedBox(width: 14),
-
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     user.fullName.isEmpty ? 'Tanpa Nama' : user.fullName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w800,
                       color: Color(0xFF111111),
                     ),
                   ),
-
-                  const SizedBox(height: 4),
-
+                  const SizedBox(height: 5),
                   Text(
-                    user.email,
+                    '${_roleLabel(user.role)} · ${user.email}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 13,
-                      color: Color(0xFF6B7280),
+                      fontSize: 12,
+                      color: Color(0xFF7A8190),
                     ),
                   ),
-
-                  const SizedBox(height: 12),
-
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _buildBadge(
-                        _roleLabel(user.role),
-                        const Color(0xFFEAFBCB),
-                      ),
-                      _buildBadge(
-                        user.isActive ? 'Aktif' : 'Suspended',
-                        user.isActive
-                            ? const Color(0xFFE5F6EC)
-                            : const Color(0xFFFFE8E8),
-                      ),
-                    ],
-                  ),
+                  const SizedBox(height: 7),
+                  _buildStatusBadge(user.isActive),
                 ],
               ),
             ),
-
             const SizedBox(width: 8),
-
-            /// Petunjuk visual bahwa card dapat dibuka
-            /// untuk melihat dan mengubah pengguna.
-            const Icon(Icons.chevron_right_rounded, color: Color(0xFF111111)),
+            const Icon(
+              Icons.chevron_right_rounded,
+              size: 24,
+              color: Color(0xFF111111),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildBadge(String label, Color backgroundColor) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: backgroundColor,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: Color(0xFF111111),
+  Widget _buildStatusBadge(bool isActive) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isActive ? const Color(0xFFE5F6EC) : const Color(0xFFFFE1E1),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Text(
+          isActive ? 'Active' : 'Suspended',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: isActive ? const Color(0xFF188A55) : const Color(0xFFC93434),
+          ),
         ),
       ),
     );
+  }
+
+  /// Search + role + status filtering.
+  List<UserProfile> _filterUsers(List<UserProfile> users) {
+    final query = _searchController.text.trim().toLowerCase();
+    return users.where((user) {
+      final matchesSearch =
+          query.isEmpty ||
+          user.fullName.toLowerCase().contains(query) ||
+          user.email.toLowerCase().contains(query);
+      final matchesRole = switch (_selectedRole) {
+        _UserRoleFilter.all => true,
+        _UserRoleFilter.student => user.role == 'student',
+        _UserRoleFilter.labAdmin => user.role == 'lab_admin',
+        _UserRoleFilter.superadmin => user.role == 'superadmin',
+      };
+      final matchesStatus = switch (_selectedStatus) {
+        _UserStatusFilter.all => true,
+        _UserStatusFilter.active => user.isActive,
+        _UserStatusFilter.suspended => !user.isActive,
+      };
+      return matchesSearch && matchesRole && matchesStatus;
+    }).toList();
+  }
+
+  /// Filter status melalui bottom sheet.
+  Future<void> _openStatusFilter() async {
+    final result = await showModalBottomSheet<_UserStatusFilter>(
+      context: context,
+      showDragHandle: true,
+      backgroundColor: const Color(0xFFF6F9EF),
+      builder: (context) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Filter Status',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: Color(0xFF111111),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                _buildStatusFilterOption(
+                  context: context,
+                  value: _UserStatusFilter.all,
+                  label: 'Semua Status',
+                  icon: Icons.apps_rounded,
+                ),
+                _buildStatusFilterOption(
+                  context: context,
+                  value: _UserStatusFilter.active,
+                  label: 'Active',
+                  icon: Icons.check_circle_outline_rounded,
+                ),
+                _buildStatusFilterOption(
+                  context: context,
+                  value: _UserStatusFilter.suspended,
+                  label: 'Suspended',
+                  icon: Icons.block_rounded,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+    if (result == null) {
+      return;
+    }
+    setState(() {
+      _selectedStatus = result;
+    });
+  }
+
+  Widget _buildStatusFilterOption({
+    required BuildContext context,
+    required _UserStatusFilter value,
+    required String label,
+    required IconData icon,
+  }) {
+    final selected = _selectedStatus == value;
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: CircleAvatar(
+        backgroundColor: selected ? const Color(0xFFB9F33D) : Colors.white,
+        foregroundColor: const Color(0xFF111111),
+        child: Icon(icon),
+      ),
+      title: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+      trailing: selected ? const Icon(Icons.check_rounded) : null,
+      onTap: () {
+        Navigator.of(context).pop(value);
+      },
+    );
+  }
+
+  /// Membuka Create User.
+  Future<void> _openCreateUser() async {
+    final created = await context.push<bool>('/superadmin/users/create');
+    if (!mounted) {
+      return;
+    }
+    if (created == true) {
+      _showSuccessNotification(
+        title: 'Pengguna dibuat',
+        message: 'Akun pengguna baru berhasil ditambahkan ke LabFlow.',
+      );
+    }
+  }
+
+  /// Membuka Edit User dan menangani hasil perubahan.
+  Future<void> _openEditUser(UserProfile user) async {
+    final result = await context.push<String>(
+      '/superadmin/users/${user.uid}/edit',
+    );
+    if (!mounted) {
+      return;
+    }
+    switch (result) {
+      case 'updated':
+        _showSuccessNotification(
+          title: 'Pengguna diperbarui',
+          message: 'Data ${user.fullName} berhasil diperbarui.',
+        );
+        break;
+      case 'suspended':
+        _showWarningNotification(
+          title: 'Pengguna dinonaktifkan',
+          message: 'Akun ${user.fullName} berhasil dinonaktifkan.',
+        );
+        break;
+      case 'activated':
+        _showSuccessNotification(
+          title: 'Pengguna diaktifkan',
+          message: 'Akun ${user.fullName} berhasil diaktifkan kembali.',
+        );
+        break;
+    }
   }
 
   Widget _buildEmptyState() {
@@ -218,7 +502,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.people_outline_rounded, size: 60),
+            Icon(Icons.people_outline_rounded, size: 56),
             SizedBox(height: 16),
             Text(
               'Belum ada pengguna',
@@ -226,8 +510,9 @@ class _UserManagementPageState extends State<UserManagementPage> {
             ),
             SizedBox(height: 8),
             Text(
-              'Data pengguna Firebase akan muncul di sini.',
+              'Tambahkan pengguna pertama melalui tombol di atas.',
               textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF6B7280)),
             ),
           ],
         ),
@@ -235,58 +520,59 @@ class _UserManagementPageState extends State<UserManagementPage> {
     );
   }
 
-  Widget _buildErrorState(String error) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Icon(Icons.error_outline_rounded, size: 60),
-            const SizedBox(height: 16),
-            const Text(
-              'Gagal memuat pengguna',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
-            ),
-            const SizedBox(height: 8),
-            Text(error, textAlign: TextAlign.center),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Feedback untuk operasi Create, Update,
-  /// Suspend, maupun Activate.
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  String _initial(String name) {
-    final trimmed = name.trim();
-
-    if (trimmed.isEmpty) {
+  String _initials(String name) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) {
       return '?';
     }
-
-    return trimmed.substring(0, 1).toUpperCase();
+    if (parts.length == 1) {
+      final value = parts.first;
+      if (value.length == 1) {
+        return value.toUpperCase();
+      }
+      return value.substring(0, 2).toUpperCase();
+    }
+    return '${parts.first[0]}${parts.last[0]}'.toUpperCase();
   }
 
   String _roleLabel(String role) {
     switch (role) {
-      case 'superadmin':
-        return 'Superadmin';
-
-      case 'lab_admin':
-        return 'Lab Admin';
-
       case 'student':
         return 'Student';
-
+      case 'lab_admin':
+        return 'Lab Admin';
+      case 'superadmin':
+        return 'Superadmin';
       default:
         return role;
     }
+  }
+
+  void _showSuccessNotification({
+    required String title,
+    required String message,
+  }) {
+    showLabFlowNotification(
+      context: context,
+      title: title,
+      message: message,
+      type: LabFlowNotificationType.success,
+    );
+  }
+
+  void _showWarningNotification({
+    required String title,
+    required String message,
+  }) {
+    showLabFlowNotification(
+      context: context,
+      title: title,
+      message: message,
+      type: LabFlowNotificationType.warning,
+    );
   }
 }

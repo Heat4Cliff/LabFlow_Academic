@@ -1,91 +1,139 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../shared/presentation/notifications/labflow_notification.dart';
+import '../../../../shared/presentation/states/labflow_connection_error_state.dart';
+import '../../../../shared/presentation/states/labflow_loading_state.dart';
 import '../../../auth/domain/user_profile.dart';
+import '../../data/activity_log_service.dart';
 import '../../data/user_management_service.dart';
 
 class EditUserPage extends StatefulWidget {
   const EditUserPage({required this.userId, super.key});
-
   final String userId;
-
   @override
   State<EditUserPage> createState() => _EditUserPageState();
 }
 
 class _EditUserPageState extends State<EditUserPage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-
   final UserManagementService _service = UserManagementService();
-
+  final ActivityLogService _activityLogService = ActivityLogService();
   final TextEditingController _nameController = TextEditingController();
-
   bool _initialised = false;
   bool _isSaving = false;
   bool _isChangingStatus = false;
-
   String _role = 'student';
   String _status = 'active';
 
+  /// Menyimpan kondisi awal pengguna.
+  ///
+  /// Data ini diperlukan agar Activity Log dapat mengetahui
+  /// apakah nama atau role benar-benar berubah.
+  String _originalFullName = '';
+  String _originalRole = 'student';
+  String _originalEmail = '';
   late final Future<UserProfile> _userFuture;
-
   @override
   void initState() {
     super.initState();
-
     _userFuture = _service.getUser(widget.userId);
   }
 
   @override
   void dispose() {
     _nameController.dispose();
-
     super.dispose();
   }
 
+  /// Mengisi form pertama kali dari data Firestore.
+  ///
+  /// Data awal juga disimpan sebagai pembanding ketika
+  /// pengguna menekan tombol Simpan Perubahan.
   void _fillForm(UserProfile profile) {
     if (_initialised) return;
-
     _nameController.text = profile.fullName;
-
     _role = profile.role;
     _status = profile.status;
-
+    _originalFullName = profile.fullName;
+    _originalRole = profile.role;
+    _originalEmail = profile.email;
     _initialised = true;
   }
 
+  /// Menyimpan perubahan nama dan/atau role pengguna.
+  ///
+  /// Activity Log hanya dibuat setelah operasi Firestore
+  /// berhasil dilakukan.
   Future<void> _save() async {
     FocusScope.of(context).unfocus();
-
     final valid = _formKey.currentState?.validate() ?? false;
-
     if (!valid || _isSaving || _isChangingStatus) {
       return;
     }
-
     setState(() {
       _isSaving = true;
     });
-
     try {
+      final newFullName = _nameController.text.trim();
+      final oldFullName = _originalFullName.trim();
+      final oldRole = _originalRole;
+      final newRole = _role;
+      final nameChanged = oldFullName != newFullName;
+      final roleChanged = oldRole != newRole;
+
+      /// Menyimpan perubahan utama terlebih dahulu.
       await _service.updateUser(
         userId: widget.userId,
-        fullName: _nameController.text,
-        role: _role,
+        fullName: newFullName,
+        role: newRole,
         status: _status,
       );
 
-      if (!mounted) return;
+      /// =====================================================
+      /// ACTIVITY LOG
+      /// =====================================================
+      /// Jika nama berubah, catat sebagai update profil.
+      if (nameChanged) {
+        await _activityLogService.logUserUpdated(
+          fullName: newFullName,
+          email: _originalEmail,
+        );
+      }
 
+      /// Jika role berubah, buat event audit terpisah
+      /// agar perubahan hak akses mudah dilacak.
+      if (roleChanged) {
+        await _activityLogService.logUserRoleChanged(
+          fullName: newFullName,
+          email: _originalEmail,
+          oldRole: oldRole,
+          newRole: newRole,
+        );
+      }
+
+      /// Memperbarui snapshot lokal.
+      ///
+      /// Berguna jika suatu saat halaman tidak langsung ditutup
+      /// setelah penyimpanan.
+      _originalFullName = newFullName;
+      _originalRole = newRole;
+      if (!mounted) return;
       context.pop('updated');
     } on UserManagementException catch (error) {
       if (!mounted) return;
-
-      _showMessage(error.message);
+      _showMessage(
+        error.message,
+        type: LabFlowNotificationType.warning,
+        title: 'Perubahan tidak dapat disimpan',
+      );
     } catch (_) {
       if (!mounted) return;
-
-      _showMessage('Gagal memperbarui pengguna.');
+      _showMessage(
+        'Gagal memperbarui pengguna.',
+        type: LabFlowNotificationType.error,
+        title: 'Terjadi kesalahan',
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -95,18 +143,30 @@ class _EditUserPageState extends State<EditUserPage> {
     }
   }
 
+  /// Mengubah status pengguna:
+  ///
+  /// active    -> suspended
+  /// suspended -> active
+  ///
+  /// Perubahan status memiliki Activity Log sendiri.
   Future<void> _toggleStatus() async {
     if (_isSaving || _isChangingStatus) {
       return;
     }
 
+    /// Nilai ini membaca kondisi SEBELUM operasi.
+    ///
+    /// Jika saat ini active, berarti aksi berikutnya adalah suspend.
     final suspending = _status == 'active';
-
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text(suspending ? 'Nonaktifkan Akun?' : 'Aktifkan Akun?'),
+          backgroundColor: const Color(0xFFF6F9EF),
+          title: Text(
+            suspending ? 'Nonaktifkan Akun?' : 'Aktifkan Akun?',
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
           content: Text(
             suspending
                 ? 'Pengguna tidak akan dapat masuk ke LabFlow sampai akun diaktifkan kembali.'
@@ -123,37 +183,62 @@ class _EditUserPageState extends State<EditUserPage> {
               onPressed: () {
                 Navigator.of(dialogContext).pop(true);
               },
+              style: FilledButton.styleFrom(
+                backgroundColor: suspending
+                    ? const Color(0xFFBD3232)
+                    : const Color(0xFF111111),
+                foregroundColor: Colors.white,
+              ),
               child: Text(suspending ? 'Nonaktifkan' : 'Aktifkan'),
             ),
           ],
         );
       },
     );
-
-    if (confirmed != true) return;
-
+    if (confirmed != true) {
+      return;
+    }
     setState(() {
       _isChangingStatus = true;
     });
-
     try {
       if (suspending) {
+        /// Menonaktifkan pengguna.
         await _service.suspendUser(widget.userId);
+
+        /// Activity Log dibuat setelah operasi berhasil.
+        await _activityLogService.logUserSuspended(
+          fullName: _originalFullName,
+          email: _originalEmail,
+        );
+        _status = 'suspended';
       } else {
+        /// Mengaktifkan kembali pengguna.
         await _service.activateUser(widget.userId);
+
+        /// Activity Log dibuat setelah operasi berhasil.
+        await _activityLogService.logUserActivated(
+          fullName: _originalFullName,
+          email: _originalEmail,
+        );
+        _status = 'active';
       }
-
       if (!mounted) return;
-
       context.pop(suspending ? 'suspended' : 'activated');
     } on UserManagementException catch (error) {
       if (!mounted) return;
-
-      _showMessage(error.message);
+      _showMessage(
+        error.message,
+        type: LabFlowNotificationType.warning,
+        title: 'Status tidak dapat diubah',
+      );
     } catch (_) {
       if (!mounted) return;
-
-      _showMessage('Gagal mengubah status pengguna.');
+      _showMessage(
+        'Gagal mengubah status pengguna.',
+        type: LabFlowNotificationType.error,
+        title: 'Perubahan status gagal',
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -163,23 +248,29 @@ class _EditUserPageState extends State<EditUserPage> {
     }
   }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+  /// Menampilkan feedback error atau informasi.
+  void _showMessage(
+    String message, {
+    LabFlowNotificationType type = LabFlowNotificationType.error,
+    String? title,
+  }) {
+    showLabFlowNotification(
+      context: context,
+      message: message,
+      type: type,
+      title: title,
+    );
   }
 
+  /// Validasi nama pengguna.
   String? _validateName(String? value) {
     final name = value?.trim() ?? '';
-
     if (name.isEmpty) {
       return 'Nama lengkap wajib diisi.';
     }
-
     if (name.length < 3) {
       return 'Nama lengkap terlalu pendek.';
     }
-
     return null;
   }
 
@@ -199,19 +290,32 @@ class _EditUserPageState extends State<EditUserPage> {
         future: _userFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError || snapshot.data == null) {
-            return const Center(
-              child: Text('Data pengguna tidak dapat dimuat.'),
+            return const LabFlowLoadingState(
+              title: 'Memuat pengguna',
+              message: 'Mengambil data pengguna yang dipilih.',
             );
           }
-
+          if (snapshot.hasError) {
+            return const LabFlowConnectionErrorState(
+              title: 'Pengguna tidak dapat dimuat',
+              message:
+                  'Data pengguna tidak dapat diambil saat ini. '
+                  'Periksa koneksi Anda lalu coba lagi.',
+            );
+          }
+          if (snapshot.data == null) {
+            return const Center(
+              child: Padding(
+                padding: EdgeInsets.all(32),
+                child: Text(
+                  'Data pengguna tidak ditemukan.',
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            );
+          }
           final profile = snapshot.data!;
-
           _fillForm(profile);
-
           return _buildForm(profile);
         },
       ),
@@ -219,8 +323,11 @@ class _EditUserPageState extends State<EditUserPage> {
   }
 
   Widget _buildForm(UserProfile profile) {
+    /// Akun Superadmin utama dilindungi.
+    ///
+    /// User Management tidak boleh digunakan untuk
+    /// mengubah role, status, ataupun nama Superadmin utama.
     final isSuperadmin = profile.role == 'superadmin';
-
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
@@ -231,33 +338,54 @@ class _EditUserPageState extends State<EditUserPage> {
             children: [
               const Text(
                 'Perbarui Pengguna',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+                style: TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF111111),
+                ),
               ),
-
+              const SizedBox(height: 8),
+              const Text(
+                'Kelola data profil, role, dan status akun pengguna LabFlow.',
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.4,
+                  color: Color(0xFF6B7280),
+                ),
+              ),
               const SizedBox(height: 24),
 
+              /// =================================================
+              /// NAMA
+              /// =================================================
               TextFormField(
                 controller: _nameController,
                 enabled: !isSuperadmin,
                 validator: _validateName,
+                textInputAction: TextInputAction.next,
                 decoration: _inputDecoration(
                   'Nama Lengkap',
-                  Icons.person_outline,
+                  Icons.person_outline_rounded,
                 ),
               ),
-
               const SizedBox(height: 16),
 
-              /// Email hanya dibaca.
+              /// =================================================
+              /// EMAIL
+              /// =================================================
+              /// Email berasal dari Firebase Authentication
+              /// dan tidak diubah melalui form ini.
               TextFormField(
                 initialValue: profile.email,
                 readOnly: true,
                 enabled: false,
                 decoration: _inputDecoration('Email', Icons.email_outlined),
               ),
-
               const SizedBox(height: 16),
 
+              /// =================================================
+              /// ROLE
+              /// =================================================
               DropdownButtonFormField<String>(
                 initialValue: isSuperadmin ? 'superadmin' : _role,
                 decoration: _inputDecoration(
@@ -287,15 +415,16 @@ class _EditUserPageState extends State<EditUserPage> {
                         if (value == null) {
                           return;
                         }
-
                         setState(() {
                           _role = value;
                         });
                       },
               ),
-
               const SizedBox(height: 16),
 
+              /// =================================================
+              /// STATUS
+              /// =================================================
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -306,10 +435,15 @@ class _EditUserPageState extends State<EditUserPage> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.info_outline_rounded),
-
+                    Icon(
+                      _status == 'active'
+                          ? Icons.check_circle_outline_rounded
+                          : Icons.block_outlined,
+                      color: _status == 'active'
+                          ? const Color(0xFF188A55)
+                          : const Color(0xFFBD3232),
+                    ),
                     const SizedBox(width: 12),
-
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -329,13 +463,37 @@ class _EditUserPageState extends State<EditUserPage> {
                         ],
                       ),
                     ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _status == 'active'
+                            ? const Color(0xFFE5F6EC)
+                            : const Color(0xFFFFE8E8),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        _status == 'active' ? 'Active' : 'Suspended',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: _status == 'active'
+                              ? const Color(0xFF188A55)
+                              : const Color(0xFFBD3232),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
-
               if (!isSuperadmin) ...[
                 const SizedBox(height: 28),
 
+                /// ===============================================
+                /// SIMPAN
+                /// ===============================================
                 SizedBox(
                   width: double.infinity,
                   height: 52,
@@ -355,15 +513,24 @@ class _EditUserPageState extends State<EditUserPage> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text(
-                            'Simpan Perubahan',
-                            style: TextStyle(fontWeight: FontWeight.w700),
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.save_outlined, size: 20),
+                              SizedBox(width: 10),
+                              Text(
+                                'Simpan Perubahan',
+                                style: TextStyle(fontWeight: FontWeight.w700),
+                              ),
+                            ],
                           ),
                   ),
                 ),
-
                 const SizedBox(height: 12),
 
+                /// ===============================================
+                /// ACTIVE / SUSPEND
+                /// ===============================================
                 SizedBox(
                   width: double.infinity,
                   height: 52,
@@ -371,6 +538,17 @@ class _EditUserPageState extends State<EditUserPage> {
                     onPressed: _isSaving || _isChangingStatus
                         ? null
                         : _toggleStatus,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _status == 'active'
+                          ? const Color(0xFFBD3232)
+                          : const Color(0xFF188A55),
+                      side: BorderSide(
+                        color: _status == 'active'
+                            ? const Color(0xFFE8C8C8)
+                            : const Color(0xFFC7E7D5),
+                      ),
+                      shape: const StadiumBorder(),
+                    ),
                     icon: Icon(
                       _status == 'active'
                           ? Icons.block_outlined
@@ -382,16 +560,36 @@ class _EditUserPageState extends State<EditUserPage> {
                           : _status == 'active'
                           ? 'Nonaktifkan Akun'
                           : 'Aktifkan Akun',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
                 ),
               ],
-
               if (isSuperadmin) ...[
                 const SizedBox(height: 24),
-                const Text(
-                  'Akun Superadmin utama dilindungi dan tidak dapat diubah melalui User Management.',
-                  style: TextStyle(color: Color(0xFF6B7280), height: 1.4),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEAFBCB),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(Icons.shield_outlined, color: Color(0xFF111111)),
+                      SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Akun Superadmin utama dilindungi dan tidak dapat diubah melalui User Management.',
+                          style: TextStyle(
+                            color: Color(0xFF111111),
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ],
@@ -401,6 +599,7 @@ class _EditUserPageState extends State<EditUserPage> {
     );
   }
 
+  /// Style dasar input form.
   InputDecoration _inputDecoration(String label, IconData icon) {
     return InputDecoration(
       labelText: label,
@@ -416,9 +615,17 @@ class _EditUserPageState extends State<EditUserPage> {
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: Color(0xFF111111), width: 1.4),
       ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFD8DDD0)),
+      ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: Color(0xFFBD3232)),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: Color(0xFFBD3232), width: 1.4),
       ),
     );
   }
