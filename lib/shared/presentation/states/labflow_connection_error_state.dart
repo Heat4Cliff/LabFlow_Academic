@@ -1,16 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// State standar LabFlow ketika data dari layanan tidak dapat dimuat.
-///
-/// Digunakan untuk kegagalan pengambilan data dari Firebase/Firestore
-/// atau layanan remote lainnya.
-///
-/// Error validasi form dan business rule tidak menggunakan widget ini.
 class LabFlowConnectionErrorState extends StatelessWidget {
   const LabFlowConnectionErrorState({
     super.key,
-    this.title = 'Data tidak dapat dimuat',
-    this.message = 'LabFlow mengalami kendala saat mengambil data. Periksa koneksi Anda lalu coba lagi.',
+    this.title = 'Koneksi bermasalah',
+    this.message = 'Kami belum dapat terhubung ke server. Tunggu sebentar, lalu coba lagi.',
     this.retryLabel = 'Coba Lagi',
     this.onRetry,
   });
@@ -22,61 +16,75 @@ class LabFlowConnectionErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const Text(
+              'Koneksi',
+              style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 20),
             Container(
-              width: 88,
-              height: 88,
-              decoration: const BoxDecoration(
-                color: Color(0xFFFFE8E8),
-                shape: BoxShape.circle,
+              width: double.infinity,
+              height: 210,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAFBCB),
+                borderRadius: BorderRadius.circular(24),
               ),
-              child: const Icon(
-                Icons.cloud_off_rounded,
-                size: 38,
-                color: Color(0xFFBD3232),
+              child: const Icon(Icons.cloud_off_rounded, size: 70),
+            ),
+            const SizedBox(height: 18),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFE8C4),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Text(
+                'Perlu perhatian',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFFA56600),
+                ),
               ),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 12),
             Text(
               title,
-              textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 21,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF111111),
+                fontSize: 25,
+                height: 1.05,
+                fontWeight: FontWeight.w900,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               message,
-              textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 height: 1.45,
-                color: Color(0xFF6B7280),
+                color: Color(0xFF737A70),
               ),
             ),
             if (onRetry != null) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: 22),
               SizedBox(
+                width: double.infinity,
                 height: 50,
-                child: FilledButton.icon(
+                child: FilledButton(
                   onPressed: onRetry,
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF111111),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
                     shape: const StadiumBorder(),
                   ),
-                  icon: const Icon(Icons.refresh_rounded, size: 20),
-                  label: Text(
+                  child: Text(
                     retryLabel,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: const TextStyle(fontWeight: FontWeight.w900),
                   ),
                 ),
               ),

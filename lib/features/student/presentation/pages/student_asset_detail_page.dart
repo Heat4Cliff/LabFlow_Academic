@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/student_service.dart';
 import '../../domain/student_models.dart';
+import '../student_navigation.dart';
 import '../widgets/student_ui.dart';
 
 class StudentAssetDetailPage extends StatefulWidget {
@@ -16,7 +17,6 @@ class StudentAssetDetailPage extends StatefulWidget {
 
 class _StudentAssetDetailPageState extends State<StudentAssetDetailPage> {
   final StudentService _service = StudentService();
-
   late Future<_AssetDetailData> _future;
 
   @override
@@ -28,7 +28,6 @@ class _StudentAssetDetailPageState extends State<StudentAssetDetailPage> {
   Future<_AssetDetailData> _load() async {
     final asset = await _service.loadAsset(widget.assetId);
     final laboratories = await _service.loadActiveLaboratories();
-
     StudentLaboratory? laboratory;
     for (final candidate in laboratories) {
       if (candidate.id == asset.labId) {
@@ -36,15 +35,12 @@ class _StudentAssetDetailPageState extends State<StudentAssetDetailPage> {
         break;
       }
     }
-
     return _AssetDetailData(asset: asset, laboratory: laboratory);
   }
 
   Future<void> _refresh() async {
     final next = _load();
-    setState(() {
-      _future = next;
-    });
+    setState(() => _future = next);
     await next;
   }
 
@@ -59,14 +55,12 @@ class _StudentAssetDetailPageState extends State<StudentAssetDetailPage> {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const StudentLoading(message: 'Memuat detail aset.');
             }
-
             if (snapshot.hasError || snapshot.data == null) {
               return StudentErrorState(
                 message: 'Detail aset tidak dapat dimuat.',
                 onRetry: _refresh,
               );
             }
-
             return _content(snapshot.data!);
           },
         ),
@@ -82,26 +76,24 @@ class _StudentAssetDetailPageState extends State<StudentAssetDetailPage> {
       onRefresh: _refresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 34),
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 32),
         children: [
-          Row(
-            children: [
-              IconButton.filledTonal(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.arrow_back_rounded),
+          StudentBackHeader(
+            title: 'Detail Aset',
+            onBack: () => context.pop(),
+            trailing: Container(
+              width: 42,
+              height: 42,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
               ),
-              const SizedBox(width: 10),
-              const Expanded(
-                child: Text(
-                  'Detail Aset',
-                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-                ),
-              ),
-            ],
+              child: const Icon(Icons.qr_code_scanner_rounded, size: 19),
+            ),
           ),
           const SizedBox(height: 16),
           AspectRatio(
-            aspectRatio: 1.35,
+            aspectRatio: 1.16,
             child: Container(
               decoration: BoxDecoration(
                 color: studentSoftLime,
@@ -117,140 +109,117 @@ class _StudentAssetDetailPageState extends State<StudentAssetDetailPage> {
                   : const _DetailPlaceholder(),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: StudentStatusPill(
+              status: asset.isAvailable ? 'available' : asset.status,
+              small: true,
+            ),
+          ),
+          const SizedBox(height: 10),
           Text(
             asset.name,
             style: const TextStyle(
-              fontSize: 26,
-              height: 1.1,
+              fontSize: 25,
+              height: 1.05,
               fontWeight: FontWeight.w900,
+              color: studentInk,
             ),
           ),
           const SizedBox(height: 6),
           Text(
-            asset.code,
-            style: const TextStyle(
-              fontSize: 12,
-              color: studentMuted,
-              fontWeight: FontWeight.w700,
-            ),
+            '${asset.code} · ${data.laboratory?.name ?? 'Laboratorium'}',
+            style: const TextStyle(fontSize: 12, color: studentMuted),
           ),
-          const SizedBox(height: 16),
-          _section(
+          const SizedBox(height: 17),
+          Row(
             children: [
-              _row('Laboratorium', data.laboratory?.name ?? '-'),
-              _row('Lokasi', asset.location),
-              _row('Kategori', asset.category),
-              _row('Stok', '${asset.stock} unit'),
-              _row(
-                'Ketersediaan',
-                asset.isAvailable ? 'Tersedia' : 'Tidak tersedia',
-              ),
-              _row('Kondisi', _condition(asset.condition)),
+              Expanded(child: _meta('Kategori', asset.category)),
+              const SizedBox(width: 16),
+              Expanded(child: _meta('Kondisi', _condition(asset.condition))),
             ],
           ),
-          if (asset.description.isNotEmpty) ...[
-            const SizedBox(height: 14),
-            _section(
-              children: [
-                const Text(
-                  'Deskripsi',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900),
-                ),
-                const SizedBox(height: 7),
-                Text(
-                  asset.description,
-                  style: const TextStyle(height: 1.45, color: studentMuted),
-                ),
-              ],
+          const SizedBox(height: 18),
+          Text(
+            asset.isAvailable
+                ? 'Siap untuk praktikum.'
+                : 'Status aset saat ini.',
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w900,
+              color: studentInk,
             ),
-          ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            asset.description.isNotEmpty
+                ? asset.description
+                : 'Informasi aset laboratorium tersedia pada halaman ini.',
+            style: const TextStyle(
+              fontSize: 14,
+              height: 1.45,
+              color: studentMuted,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              const Icon(
+                Icons.info_outline_rounded,
+                size: 16,
+                color: studentMuted,
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Text(
+                  'Pengambilan setelah persetujuan Lab Admin. Stok ${asset.stock} unit.',
+                  style: const TextStyle(fontSize: 10, color: studentMuted),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 18),
           SizedBox(
             height: 54,
-            child: FilledButton.icon(
+            child: FilledButton(
               onPressed: asset.isAvailable
                   ? () => context.push(
-                      '/student/borrowing/request?assetId=${asset.id}',
+                      '$studentBorrowRequestFormPath?assetId=${Uri.encodeComponent(asset.id)}',
                     )
                   : null,
-              icon: const Icon(Icons.add_circle_outline_rounded),
-              label: Text(
-                asset.isAvailable ? 'Ajukan Peminjaman' : 'Aset Tidak Tersedia',
-                style: const TextStyle(fontWeight: FontWeight.w900),
-              ),
               style: FilledButton.styleFrom(
                 backgroundColor: studentInk,
                 foregroundColor: Colors.white,
                 disabledBackgroundColor: const Color(0xFFB8BCB3),
-                disabledForegroundColor: Colors.white,
                 shape: const StadiumBorder(),
+              ),
+              child: Text(
+                asset.isAvailable ? 'Ajukan Peminjaman' : 'Aset Tidak Tersedia',
+                style: const TextStyle(fontWeight: FontWeight.w900),
               ),
             ),
           ),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: studentSoftLime,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.info_outline_rounded, size: 19),
-                SizedBox(width: 9),
-                Expanded(
-                  child: Text(
-                    'Pengajuan baru berstatus Menunggu. Stok baru berubah saat Lab Admin menugaskan aset.',
-                    style: TextStyle(
-                      fontSize: 11,
-                      height: 1.4,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
         ],
       ),
     );
   }
 
-  Widget _section({required List<Widget> children}) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: studentBorder),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(children: children),
-    );
-  }
-
-  Widget _row(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(fontSize: 12, color: studentMuted),
-            ),
+  Widget _meta(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 11, color: studentMuted)),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+            color: studentInk,
           ),
-          const SizedBox(width: 12),
-          Flexible(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -270,7 +239,6 @@ class _StudentAssetDetailPageState extends State<StudentAssetDetailPage> {
 
 class _AssetDetailData {
   const _AssetDetailData({required this.asset, required this.laboratory});
-
   final StudentAsset asset;
   final StudentLaboratory? laboratory;
 }

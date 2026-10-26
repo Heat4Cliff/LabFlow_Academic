@@ -1,17 +1,10 @@
 import 'package:flutter/material.dart';
 
-/// State standar LabFlow ketika pencarian atau filter
-/// tidak menghasilkan data.
-///
-/// Widget ini berbeda dengan Empty State.
-/// Empty State digunakan ketika sumber data memang kosong,
-/// sedangkan widget ini digunakan ketika data tersedia
-/// tetapi tidak cocok dengan pencarian atau filter aktif.
 class LabFlowNoSearchResultsState extends StatelessWidget {
   const LabFlowNoSearchResultsState({
     super.key,
-    this.title = 'Tidak ada hasil',
-    this.message = 'Coba ubah kata pencarian atau filter yang digunakan.',
+    this.title = 'Belum ketemu, nih.',
+    this.message = 'Tidak ada hasil untuk pencarian atau filter ini. Coba kata kunci lain.',
     this.icon = Icons.search_off_rounded,
   });
 
@@ -23,37 +16,37 @@ class LabFlowNoSearchResultsState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 88,
-              height: 88,
-              decoration: const BoxDecoration(
-                color: Color(0xFFEAFBCB),
-                shape: BoxShape.circle,
+              width: double.infinity,
+              height: 180,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAFBCB),
+                borderRadius: BorderRadius.circular(24),
               ),
-              child: Icon(icon, size: 38, color: const Color(0xFF111111)),
+              child: Icon(icon, size: 60, color: const Color(0xFF111111)),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 18),
             Text(
               title,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 21,
-                fontWeight: FontWeight.w800,
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
                 color: Color(0xFF111111),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 7),
             Text(
               message,
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 height: 1.45,
-                color: Color(0xFF6B7280),
+                color: Color(0xFF737A70),
               ),
             ),
           ],

@@ -21,6 +21,7 @@ class ReportConversationPanel extends StatelessWidget {
 class _ConversationView extends StatefulWidget {
   const _ConversationView({required this.reportId});
   final String reportId;
+
   @override
   State<_ConversationView> createState() => _ConversationViewState();
 }
@@ -38,51 +39,54 @@ class _ConversationViewState extends State<_ConversationView> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      BlocConsumer<ReportConversationCubit, ReportConversationState>(
-        listenWhen: (previous, current) =>
-            previous.messages.length != current.messages.length ||
-            previous.errorMessage != current.errorMessage,
-        listener: (context, state) {
-          if (state.messages.length > _lastCount) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (_scroll.hasClients) {
-                _scroll.animateTo(
-                  _scroll.position.maxScrollExtent,
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                );
-              }
-            });
-          }
-          _lastCount = state.messages.length;
-          if (state.errorMessage.isNotEmpty) {
-            ScaffoldMessenger.of(context)
-                .showSnackBar(SnackBar(content: Text(state.errorMessage)));
-          }
-        },
-        builder: (context, state) => Container(
-          height: 440,
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: const Color(0xFFDDE2D5)),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Percakapan laporan',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 10),
-              Expanded(child: _messages(context, state)),
-              const SizedBox(height: 8),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Expanded(
+  Widget build(BuildContext context) {
+    return BlocConsumer<ReportConversationCubit, ReportConversationState>(
+      listenWhen: (previous, current) =>
+          previous.messages.length != current.messages.length ||
+          previous.errorMessage != current.errorMessage,
+      listener: (context, state) {
+        if (state.messages.length > _lastCount) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_scroll.hasClients) {
+              _scroll.animateTo(
+                _scroll.position.maxScrollExtent,
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOut,
+              );
+            }
+          });
+        }
+        _lastCount = state.messages.length;
+        if (state.errorMessage.isNotEmpty) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text(state.errorMessage)));
+        }
+      },
+      builder: (context, state) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Percakapan laporan',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 10),
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 150, maxHeight: 330),
+              child: _messages(context, state),
+            ),
+            const SizedBox(height: 10),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: const Color(0xFFCDD4E0)),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
                     child: TextField(
                       controller: _text,
                       minLines: 1,
@@ -90,39 +94,43 @@ class _ConversationViewState extends State<_ConversationView> {
                       maxLength: 1000,
                       textInputAction: TextInputAction.send,
                       onSubmitted: (_) => _send(context),
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         hintText: 'Tulis pesan...',
                         counterText: '',
-                        filled: true,
-                        fillColor: const Color(0xFFF6F9EF),
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 11,
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(18),
-                          borderSide: BorderSide.none,
-                        ),
+                        border: InputBorder.none,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton.filled(
+                ),
+                const SizedBox(width: 9),
+                SizedBox(
+                  width: 52,
+                  height: 52,
+                  child: IconButton.filled(
                     onPressed: state.sending ? null : () => _send(context),
+                    style: IconButton.styleFrom(
+                      backgroundColor: const Color(0xFF5868AE),
+                      foregroundColor: Colors.white,
+                    ),
                     icon: state.sending
                         ? const SizedBox(
                             width: 18,
                             height: 18,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
                           )
                         : const Icon(Icons.send_rounded),
                   ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      );
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   Widget _messages(BuildContext context, ReportConversationState state) {
     if (state.status == ReportConversationStatus.initial ||
@@ -142,12 +150,13 @@ class _ConversationViewState extends State<_ConversationView> {
         child: Text(
           'Belum ada pesan. Mulai percakapan di sini.',
           textAlign: TextAlign.center,
-          style: TextStyle(color: Color(0xFF686E63)),
+          style: TextStyle(color: Color(0xFF737A70)),
         ),
       );
     }
     return ListView.builder(
       controller: _scroll,
+      shrinkWrap: true,
       itemCount: state.messages.length,
       itemBuilder: (context, index) => _bubble(context, state.messages[index]),
     );
@@ -156,8 +165,11 @@ class _ConversationViewState extends State<_ConversationView> {
   Widget _bubble(BuildContext context, ReportMessage message) {
     final cubit = context.read<ReportConversationCubit>();
     final own = message.senderId == cubit.currentUid;
-    final color = own ? const Color(0xFFEAFBCB) : const Color(0xFFF0F2EC);
-    final role = message.senderRole == 'lab_admin' ? 'Lab Admin' : 'Student';
+    final color = own ? const Color(0xFFE2F0B9) : const Color(0xFFEAFBCB);
+    final role = message.senderRole == 'lab_admin'
+        ? 'Respons Lab Admin'
+        : 'Student';
+
     return Align(
       alignment: own ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
@@ -165,39 +177,58 @@ class _ConversationViewState extends State<_ConversationView> {
             ? () => cubit.delete(message.id)
             : null,
         child: Container(
-          constraints: const BoxConstraints(maxWidth: 280),
-          margin: const EdgeInsets.only(bottom: 9),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          constraints: const BoxConstraints(maxWidth: 300),
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.fromLTRB(15, 13, 15, 12),
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.only(
+              topLeft: const Radius.circular(22),
+              topRight: const Radius.circular(22),
+              bottomLeft: Radius.circular(own ? 22 : 7),
+              bottomRight: Radius.circular(own ? 7 : 22),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                role,
-                style: const TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w900,
-                  color: Color(0xFF686E63),
-                ),
+              Row(
+                children: [
+                  Icon(
+                    own
+                        ? Icons.person_outline_rounded
+                        : Icons.chat_bubble_outline_rounded,
+                    size: 18,
+                  ),
+                  const SizedBox(width: 7),
+                  Text(
+                    role,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 9),
               Text(
                 message.isDeleted ? 'Pesan telah dihapus' : message.text,
                 style: TextStyle(
                   fontSize: 13,
+                  height: 1.4,
                   fontStyle: message.isDeleted
                       ? FontStyle.italic
                       : FontStyle.normal,
                 ),
               ),
               if (message.createdAt != null) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 8),
                 Text(
-                  _time(message.createdAt!),
-                  style: const TextStyle(fontSize: 9, color: Color(0xFF686E63)),
+                  '${role == 'Respons Lab Admin' ? 'Lab Admin' : 'Student'} · ${_time(message.createdAt!)}',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    color: Color(0xFF737A70),
+                  ),
                 ),
               ],
             ],

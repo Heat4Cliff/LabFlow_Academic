@@ -83,15 +83,6 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
     );
   }
 
-  String _firstName(String fullName) {
-    final cleanName = fullName.trim();
-    if (cleanName.isEmpty) {
-      return 'Lab Admin';
-    }
-
-    return cleanName.split(RegExp(r'\s+')).first;
-  }
-
   String _resolveSelectedLabId(List<Laboratory> laboratories) {
     final current = _selectedLabId;
 
@@ -316,24 +307,12 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
               record.status == 'pending' || record.status == 'in_progress',
         )
         .length;
-    final damaged = assets
-        .where((asset) => asset.condition == 'damaged')
-        .length;
-    final minorDamage = assets
-        .where((asset) => asset.condition == 'minor_damage')
-        .length;
-    final inactive = assets.where((asset) => asset.status == 'inactive').length;
-
     final readiness = total == 0 ? 0.0 : available / total;
 
     return RefreshIndicator(
       onRefresh: () async {
         final refreshedProfile = _authService.getCurrentUserProfile();
-
-        setState(() {
-          _profileFuture = refreshedProfile;
-        });
-
+        setState(() => _profileFuture = refreshedProfile);
         try {
           await refreshedProfile;
         } catch (_) {
@@ -342,307 +321,273 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 40),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 38),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Selamat datang, ${_firstName(profile.fullName)}',
-              style: const TextStyle(
-                fontSize: 28,
-                height: 1.08,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.8,
-                color: _ink,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Berikut ringkasan operasional laboratorium hari ini.',
-              style: TextStyle(fontSize: 14, height: 1.45, color: _muted),
-            ),
-            const SizedBox(height: 22),
-            _buildLaboratoryHero(
-              laboratories: laboratories,
-              selectedLaboratory: selectedLaboratory,
-            ),
-            const SizedBox(height: 24),
-            _sectionHeader('Ringkasan Aset'),
-            const SizedBox(height: 12),
-            GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              mainAxisExtent: 132,
-              children: [
-                _buildStatCard(
-                  label: 'Total Aset',
-                  value: total.toString(),
-                  supporting: total == 0 ? 'Belum ada aset' : 'Unit terdaftar',
-                  icon: Icons.inventory_2_outlined,
-                  accent: _ink,
-                  iconBackground: _softLime,
-                ),
-                _buildStatCard(
-                  label: 'Tersedia',
-                  value: available.toString(),
-                  supporting: total == 0
-                      ? 'Belum ada data'
-                      : '${(readiness * 100).round()}% siap pakai',
-                  icon: Icons.check_circle_outline_rounded,
-                  accent: const Color(0xFF188A55),
-                  iconBackground: const Color(0xFFE5F6EC),
-                ),
-                _buildStatCard(
-                  label: 'Dipinjam',
-                  value: borrowed.toString(),
-                  supporting: borrowed == 0
-                      ? 'Tidak ada pinjaman'
-                      : 'Unit aktif',
-                  icon: Icons.swap_horiz_rounded,
-                  accent: const Color(0xFF3559A6),
-                  iconBackground: const Color(0xFFE8EEFF),
-                ),
-                _buildStatCard(
-                  label: 'Maintenance',
-                  value: openMaintenance.toString(),
-                  supporting: openMaintenance == 0
-                      ? 'Tidak ada perbaikan'
-                      : 'Perlu ditangani',
-                  icon: Icons.build_outlined,
-                  accent: const Color(0xFFA86E00),
-                  iconBackground: const Color(0xFFFFF0CF),
-                ),
-              ],
-            ),
-            const SizedBox(height: 26),
             Row(
               children: [
-                Expanded(child: _sectionHeader('Aksi Cepat')),
-                TextButton(
-                  onPressed: () {
-                    context.go('/lab-admin/assets');
-                  },
-                  child: const Text('Lihat inventaris'),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Lab Admin',
+                        style: TextStyle(
+                          fontSize: 28,
+                          height: 1.05,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: -0.8,
+                          color: _ink,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Semantics(
+                        label: profile.fullName,
+                        child: Text(
+                          selectedLaboratory.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12, color: _muted),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.notifications_none_rounded),
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 18),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: _lime,
+                borderRadius: BorderRadius.circular(26),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Total Aset',
+                          style: TextStyle(fontSize: 12, color: _ink),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          '$total',
+                          style: const TextStyle(
+                            fontSize: 47,
+                            height: 1,
+                            fontWeight: FontWeight.w900,
+                            color: _ink,
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _summaryMetric('$available', 'Tersedia'),
+                            ),
+                            Expanded(
+                              child: _summaryMetric('$borrowed', 'Dipinjam'),
+                            ),
+                            Expanded(
+                              child: _summaryMetric(
+                                '$maintenanceAssets',
+                                'Maintenance',
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  SizedBox(
+                    width: 92,
+                    height: 92,
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        SizedBox(
+                          width: 84,
+                          height: 84,
+                          child: CircularProgressIndicator(
+                            value: readiness,
+                            strokeWidth: 11,
+                            backgroundColor: const Color(0xFF1E4D72),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              _ink,
+                            ),
+                          ),
+                        ),
+                        Text(
+                          '${(readiness * 100).round()}%',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w900,
+                            color: _ink,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
             Row(
               children: [
                 Expanded(
                   child: _buildQuickAction(
                     icon: Icons.add_rounded,
-                    label: 'Tambah\nAset',
+                    label: 'Tambah Aset',
                     badge: null,
                     onTap: _createAsset,
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
                 Expanded(
                   child: _buildQuickAction(
-                    icon: Icons.inventory_2_outlined,
-                    label: 'Kelola\nInventaris',
-                    badge: total == 0 ? null : total.toString(),
-                    onTap: () {
-                      context.go('/lab-admin/assets');
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _buildQuickAction(
-                    icon: Icons.assignment_turned_in_outlined,
-                    label: 'Review\nPinjaman',
+                    icon: Icons.handshake_outlined,
+                    label: 'Proses Pinjaman',
                     badge: null,
-                    onTap: () {
-                      context.go('/lab-admin/borrowing');
-                    },
+                    onTap: () => context.go('/lab-admin/borrowing'),
                   ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _buildQuickAction(
+                    icon: Icons.assignment_outlined,
+                    label: 'Laporan',
+                    badge: null,
+                    onTap: () => context.go('/lab-admin/reports'),
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Expanded(
                   child: _buildQuickAction(
                     icon: Icons.build_outlined,
                     label: 'Maintenance',
-                    badge: openMaintenance == 0
-                        ? null
-                        : openMaintenance.toString(),
-                    onTap: () {
-                      context.push('/lab-admin/maintenance');
-                    },
+                    badge: openMaintenance == 0 ? null : '$openMaintenance',
+                    onTap: () => context.go('/lab-admin/maintenance'),
                   ),
                 ),
               ],
             ),
-            const SizedBox(height: 26),
-            _sectionHeader('Kesehatan Inventaris'),
-            const SizedBox(height: 12),
-            _buildInventoryHealthCard(
-              total: total,
-              available: available,
-              borrowed: borrowed,
-              maintenance: maintenanceAssets,
-              damaged: damaged,
-              minorDamage: minorDamage,
-              inactive: inactive,
+            const SizedBox(height: 24),
+            _sectionHeader('Perlu ditangani'),
+            const SizedBox(height: 8),
+            _attentionRow(
+              icon: Icons.handshake_outlined,
+              title: 'Permintaan Peminjaman',
+              badge: 'Tinjau',
+              badgeColor: const Color(0xFFFFE8C4),
+              badgeText: const Color(0xFFA56600),
+              onTap: () => context.go('/lab-admin/borrowing'),
             ),
-            const SizedBox(height: 18),
-            _buildMembershipNote(laboratories.length),
+            _attentionRow(
+              icon: Icons.assignment_outlined,
+              title: 'Laporan Terbuka',
+              badge: 'Buka',
+              badgeColor: const Color(0xFFFCE2DF),
+              badgeText: const Color(0xFFD14334),
+              onTap: () => context.go('/lab-admin/reports'),
+            ),
+            _attentionRow(
+              icon: Icons.build_outlined,
+              title: 'Maintenance Aktif',
+              badge: '$openMaintenance aset',
+              badgeColor: const Color(0xFFDDEAFE),
+              badgeText: const Color(0xFF2C5CA8),
+              onTap: () => context.go('/lab-admin/maintenance'),
+            ),
+            if (laboratories.length > 1) ...[
+              const SizedBox(height: 16),
+              _buildMembershipNote(laboratories.length),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildLaboratoryHero({
-    required List<Laboratory> laboratories,
-    required Laboratory selectedLaboratory,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: _ink,
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 54,
-            height: 54,
-            decoration: const BoxDecoration(
-              color: _lime,
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.science_outlined, color: _ink, size: 27),
+  Widget _summaryMetric(String value, String label) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w900,
+            color: _ink,
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Laboratorium aktif',
-                  style: TextStyle(fontSize: 12, color: Color(0xFFB8BCB3)),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  selectedLaboratory.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  '${selectedLaboratory.code} · ${selectedLaboratory.location}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFFB8BCB3),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          if (laboratories.length > 1)
-            PopupMenuButton<String>(
-              tooltip: 'Pilih laboratorium',
-              color: Colors.white,
-              iconColor: Colors.white,
-              initialValue: selectedLaboratory.id,
-              onSelected: (value) {
-                setState(() {
-                  _selectedLabId = value;
-                });
-              },
-              itemBuilder: (context) {
-                return laboratories.map((laboratory) {
-                  return PopupMenuItem<String>(
-                    value: laboratory.id,
-                    child: Text('${laboratory.code} · ${laboratory.name}'),
-                  );
-                }).toList();
-              },
-              icon: const Icon(Icons.expand_more_rounded),
-            ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 2),
+        Text(label, style: const TextStyle(fontSize: 10, color: _ink)),
+      ],
     );
   }
 
-  Widget _buildStatCard({
-    required String label,
-    required String value,
-    required String supporting,
+  Widget _attentionRow({
     required IconData icon,
-    required Color accent,
-    required Color iconBackground,
+    required String title,
+    required String badge,
+    required Color badgeColor,
+    required Color badgeText,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: _line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                    color: _muted,
-                  ),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 13),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: _line)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 21, color: _ink),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: _ink,
                 ),
               ),
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: iconBackground,
-                  borderRadius: BorderRadius.circular(11),
-                ),
-                child: Icon(icon, color: accent, size: 18),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+              decoration: BoxDecoration(
+                color: badgeColor,
+                borderRadius: BorderRadius.circular(999),
               ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 26,
-              height: 1,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.6,
-              color: _ink,
+              child: Text(
+                badge,
+                style: TextStyle(
+                  fontSize: 9,
+                  fontWeight: FontWeight.w800,
+                  color: badgeText,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 5),
-          Text(
-            supporting,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: accent,
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -719,96 +664,6 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildInventoryHealthCard({
-    required int total,
-    required int available,
-    required int borrowed,
-    required int maintenance,
-    required int damaged,
-    required int minorDamage,
-    required int inactive,
-  }) {
-    final readiness = total == 0 ? 0.0 : available / total;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(22),
-        border: Border.all(color: _line),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Expanded(
-                child: Text(
-                  'Rasio kesiapan aset',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w800,
-                    color: _ink,
-                  ),
-                ),
-              ),
-              Text(
-                total == 0 ? '0%' : '${(readiness * 100).round()}%',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                  color: Color(0xFF188A55),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: readiness,
-              minHeight: 8,
-              backgroundColor: const Color(0xFFEDF0E9),
-              valueColor: const AlwaysStoppedAnimation<Color>(_lime),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _healthChip('Tersedia', available, const Color(0xFF188A55)),
-              _healthChip('Dipinjam', borrowed, const Color(0xFF3559A6)),
-              _healthChip('Maintenance', maintenance, const Color(0xFFA86E00)),
-              _healthChip('Rusak', damaged, const Color(0xFFBD3232)),
-              _healthChip('Ringan', minorDamage, const Color(0xFF8A6515)),
-              _healthChip('Inactive', inactive, _muted),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _healthChip(String label, int value, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        '$label $value',
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: color,
         ),
       ),
     );

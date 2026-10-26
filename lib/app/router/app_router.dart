@@ -27,13 +27,15 @@ import '../../features/student/presentation/pages/student_home_page.dart';
 import '../../features/student/presentation/pages/student_asset_detail_page.dart';
 import '../../features/student/presentation/pages/student_borrowing_page.dart';
 import '../../features/student/presentation/pages/student_borrowing_detail_page.dart';
-import '../../features/student/presentation/pages/student_report_create_page.dart';
-import '../../features/student/presentation/pages/student_report_detail_page.dart';
-import '../../features/student/presentation/pages/student_notification_page.dart';
 import '../../features/student/presentation/pages/student_borrow_request_page.dart';
 import '../../features/student/presentation/pages/student_equipment_page.dart';
 import '../../features/student/presentation/pages/student_profile_page.dart';
 import '../../features/student/presentation/pages/student_reports_page.dart';
+import '../../features/student/presentation/pages/student_report_detail_page.dart';
+import '../../features/student/presentation/pages/student_report_create_page.dart';
+import '../../features/student/presentation/pages/student_notification_page.dart';
+import '../../features/student/presentation/cubit/student_notification_cubit.dart';
+import '../../features/student/presentation/student_navigation.dart';
 import '../../features/superadmin/presentation/pages/activity_log_page.dart';
 import '../../features/superadmin/presentation/pages/create_laboratory_page.dart';
 import '../../features/superadmin/presentation/pages/create_user_page.dart';
@@ -202,16 +204,7 @@ GoRouter createAppRouter({required String initialLocation}) {
         },
       ),
       GoRoute(
-        path: '/student/borrowing/:requestId',
-        builder: (context, state) => LabFlowAccountStatusGate(
-          requiredRole: 'student',
-          child: StudentBorrowingDetailPage(
-            requestId: state.pathParameters['requestId']!,
-          ),
-        ),
-      ),
-      GoRoute(
-        path: '/student/borrowing/request',
+        path: studentBorrowRequestFormPath,
         builder: (context, state) {
           final assetId = state.uri.queryParameters['assetId']?.trim() ?? '';
 
@@ -224,6 +217,17 @@ GoRouter createAppRouter({required String initialLocation}) {
           return LabFlowAccountStatusGate(
             requiredRole: 'student',
             child: StudentBorrowRequestPage(assetId: assetId),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/student/borrowing/:requestId',
+        builder: (context, state) {
+          final requestId = state.pathParameters['requestId']!;
+
+          return LabFlowAccountStatusGate(
+            requiredRole: 'student',
+            child: StudentBorrowingDetailPage(requestId: requestId),
           );
         },
       ),
@@ -245,12 +249,14 @@ GoRouter createAppRouter({required String initialLocation}) {
       ),
       GoRoute(
         path: '/student/reports/:reportId',
-        builder: (context, state) => LabFlowAccountStatusGate(
-          requiredRole: 'student',
-          child: StudentReportDetailPage(
-            reportId: state.pathParameters['reportId']!,
-          ),
-        ),
+        builder: (context, state) {
+          final reportId = state.pathParameters['reportId']!;
+
+          return LabFlowAccountStatusGate(
+            requiredRole: 'student',
+            child: StudentReportDetailPage(reportId: reportId),
+          );
+        },
       ),
       GoRoute(
         path: '/student/profile',
@@ -261,12 +267,18 @@ GoRouter createAppRouter({required String initialLocation}) {
           );
         },
       ),
+
       GoRoute(
         path: '/student/notifications',
-        builder: (context, state) => const LabFlowAccountStatusGate(
-          requiredRole: 'student',
-          child: StudentNotificationPage(),
-        ),
+        builder: (context, state) {
+          final notificationCubit = state.extra is StudentNotificationCubit
+              ? state.extra! as StudentNotificationCubit
+              : null;
+          return LabFlowAccountStatusGate(
+            requiredRole: 'student',
+            child: StudentNotificationPage(cubit: notificationCubit),
+          );
+        },
       ),
 
       /// Area Lab Admin.

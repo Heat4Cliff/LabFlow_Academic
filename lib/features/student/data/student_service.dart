@@ -146,8 +146,6 @@ class StudentService {
       );
     }
 
-    // Membaca ulang aset tepat sebelum submit untuk mencegah request memakai
-    // stok/status lama dari halaman yang sudah terbuka terlalu lama.
     final latestAssetSnapshot = await _firestore
         .collection('assets')
         .doc(asset.id)
@@ -217,8 +215,6 @@ class StudentService {
     });
 
     try {
-      // Parent dan item disimpan atomik. Rules memakai getAfter() untuk
-      // memvalidasi parent yang dibuat pada batch yang sama.
       await batch.commit();
     } on FirebaseException catch (error) {
       if (error.code == 'permission-denied') {

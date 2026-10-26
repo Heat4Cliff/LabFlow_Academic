@@ -62,70 +62,63 @@ class _StudentBorrowRequestView extends StatelessWidget {
     );
   }
 
-  Widget _header(
-    BuildContext context, {
-    required String title,
-    String? subtitle,
-    VoidCallback? onBack,
-  }) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        IconButton.filledTonal(
-          onPressed: onBack ?? () => context.pop(),
-          icon: const Icon(Icons.arrow_back_rounded),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              if (subtitle != null) ...[
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: const TextStyle(fontSize: 12, color: studentMuted),
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
   Widget _form(BuildContext context, StudentBorrowFormState state) {
     final cubit = context.read<StudentBorrowFormCubit>();
     final asset = state.asset!;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
       children: [
-        _header(
-          context,
+        StudentBackHeader(
           title: 'Ajukan Peminjaman',
-          subtitle: 'Lengkapi kebutuhan peminjaman aset.',
+          onBack: () => context.pop(),
         ),
-        const SizedBox(height: 18),
-        _assetSummary(state),
-        const SizedBox(height: 18),
-        _fieldLabel('Jumlah'),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
         Container(
-          height: 54,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: studentBorder),
-            borderRadius: BorderRadius.circular(18),
+            color: studentLime,
+            borderRadius: BorderRadius.circular(22),
           ),
+          child: Row(
+            children: [
+              Container(
+                width: 54,
+                height: 54,
+                decoration: BoxDecoration(
+                  color: const Color(0x22FFFFFF),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.router_outlined, color: studentInk),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      asset.name,
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${asset.code} · ${state.laboratory?.name ?? 'Laboratorium'}',
+                      style: const TextStyle(fontSize: 10, color: studentInk),
+                    ),
+                    const SizedBox(height: 7),
+                    const StudentStatusPill(status: 'available', small: true),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _cardField(
+          label: 'Jumlah',
           child: Row(
             children: [
               IconButton(
@@ -150,7 +143,7 @@ class _StudentBorrowRequestView extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
         _dateField(
           context,
           label: 'Tanggal Pinjam',
@@ -159,56 +152,65 @@ class _StudentBorrowRequestView extends StatelessWidget {
           lastDate: DateTime.now().add(const Duration(days: 90)),
           onSelected: cubit.setBorrowDate,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
         _dateField(
           context,
-          label: 'Rencana Kembali',
+          label: 'Tanggal Kembali',
           value: state.expectedReturnDate!,
           firstDate: state.borrowDate!,
           lastDate: state.borrowDate!.add(const Duration(days: 90)),
           onSelected: cubit.setExpectedReturnDate,
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
         TextField(
-          minLines: 2,
+          minLines: 3,
           maxLines: 4,
           maxLength: 300,
           onChanged: cubit.setPurpose,
-          decoration: _inputDecoration(
+          decoration: _decoration(
             'Tujuan Peminjaman',
-            'Contoh: praktikum IoT semester 7',
+            'Contoh: Praktikum Jaringan',
           ),
         ),
-        const SizedBox(height: 12),
         TextField(
           minLines: 2,
           maxLines: 4,
           maxLength: 1000,
           onChanged: cubit.setStudentNote,
-          decoration: _inputDecoration(
+          decoration: _decoration(
             'Catatan (opsional)',
             'Informasi tambahan untuk Lab Admin.',
           ),
         ),
         if (state.errorMessage.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          _error(state.errorMessage),
+          const SizedBox(height: 4),
+          Text(
+            state.errorMessage,
+            style: const TextStyle(
+              color: studentPinkText,
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
         ],
-        const SizedBox(height: 18),
+        const SizedBox(height: 10),
+        const Text(
+          'Permintaan akan ditinjau Lab Admin. Ambil aset hanya setelah disetujui.',
+          style: TextStyle(fontSize: 10, height: 1.4, color: studentMuted),
+        ),
+        const SizedBox(height: 14),
         SizedBox(
           height: 54,
-          child: FilledButton.icon(
+          child: FilledButton(
             onPressed: state.canReview ? cubit.review : null,
-            icon: const Icon(Icons.fact_check_outlined),
-            label: const Text(
-              'Tinjau Pengajuan',
-              style: TextStyle(fontWeight: FontWeight.w900),
-            ),
             style: FilledButton.styleFrom(
               backgroundColor: studentInk,
               foregroundColor: Colors.white,
-              disabledBackgroundColor: const Color(0xFFB8BCB3),
               shape: const StadiumBorder(),
+            ),
+            child: const Text(
+              'Tinjau Pengajuan',
+              style: TextStyle(fontWeight: FontWeight.w900),
             ),
           ),
         ),
@@ -218,75 +220,82 @@ class _StudentBorrowRequestView extends StatelessWidget {
 
   Widget _review(BuildContext context, StudentBorrowFormState state) {
     final cubit = context.read<StudentBorrowFormCubit>();
-
     return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+      padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
       children: [
-        _header(
-          context,
-          title: 'Review Pengajuan',
-          subtitle: 'Pastikan data sudah benar sebelum dikirim.',
-          onBack: cubit.edit,
-        ),
-        const SizedBox(height: 18),
-        _assetSummary(state),
-        const SizedBox(height: 14),
-        _reviewCard([
-          _reviewRow('Jumlah', '${state.quantity} unit'),
-          _reviewRow('Tanggal Pinjam', studentFormatDate(state.borrowDate!)),
-          _reviewRow(
-            'Rencana Kembali',
-            studentFormatDate(state.expectedReturnDate!),
+        StudentBackHeader(title: 'Tinjau Pengajuan', onBack: cubit.edit),
+        const SizedBox(height: 16),
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: studentInk,
+            borderRadius: BorderRadius.circular(24),
           ),
-          _reviewRow('Tujuan', state.purpose.trim()),
-          if (state.studentNote.trim().isNotEmpty)
-            _reviewRow('Catatan', state.studentNote.trim()),
-        ]),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                state.asset!.name,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                '${state.asset!.code} · ${state.laboratory?.name ?? 'Laboratorium'}',
+                style: const TextStyle(fontSize: 11, color: Color(0xFFB8BCB3)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        _reviewRow('Jumlah', '${state.quantity} unit'),
+        _reviewRow('Tanggal Pinjam', studentFormatDate(state.borrowDate!)),
+        _reviewRow(
+          'Tanggal Kembali',
+          studentFormatDate(state.expectedReturnDate!),
+        ),
+        _reviewRow('Tujuan', state.purpose.trim()),
+        if (state.studentNote.trim().isNotEmpty)
+          _reviewRow('Catatan', state.studentNote.trim()),
         if (state.errorMessage.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          _error(state.errorMessage),
+          const SizedBox(height: 10),
+          Text(
+            state.errorMessage,
+            style: const TextStyle(color: studentPinkText),
+          ),
         ],
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
         Row(
           children: [
             Expanded(
               child: OutlinedButton(
                 onPressed: state.isSubmitting ? null : cubit.edit,
                 style: OutlinedButton.styleFrom(
-                  minimumSize: const Size.fromHeight(54),
+                  minimumSize: const Size.fromHeight(52),
                   foregroundColor: studentInk,
+                  side: const BorderSide(color: studentBorder),
                   shape: const StadiumBorder(),
                 ),
-                child: const Text(
-                  'Edit',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
+                child: const Text('Edit'),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               flex: 2,
-              child: FilledButton.icon(
+              child: FilledButton(
                 onPressed: state.isSubmitting ? null : cubit.submit,
-                icon: state.isSubmitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: studentInk,
-                        ),
-                      )
-                    : const Icon(Icons.send_rounded),
-                label: Text(
+                style: FilledButton.styleFrom(
+                  minimumSize: const Size.fromHeight(52),
+                  backgroundColor: studentInk,
+                  foregroundColor: Colors.white,
+                  shape: const StadiumBorder(),
+                ),
+                child: Text(
                   state.isSubmitting ? 'Mengirim...' : 'Kirim Pengajuan',
                   style: const TextStyle(fontWeight: FontWeight.w900),
-                ),
-                style: FilledButton.styleFrom(
-                  minimumSize: const Size.fromHeight(54),
-                  backgroundColor: studentLime,
-                  foregroundColor: studentInk,
-                  shape: const StadiumBorder(),
                 ),
               ),
             ),
@@ -297,48 +306,31 @@ class _StudentBorrowRequestView extends StatelessWidget {
   }
 
   Widget _success(BuildContext context, StudentBorrowFormState state) {
-    final result = state.result;
-
     return Center(
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
             Container(
-              width: 78,
-              height: 78,
+              width: 82,
+              height: 82,
               decoration: const BoxDecoration(
                 color: studentLime,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.check_rounded,
-                size: 42,
-                color: studentInk,
-              ),
+              child: const Icon(Icons.check_rounded, size: 44),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
             const Text(
               'Pengajuan Terkirim',
-              textAlign: TextAlign.center,
               style: TextStyle(fontSize: 25, fontWeight: FontWeight.w900),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 7),
             Text(
-              result?.requestNumber ?? 'Permintaan peminjaman',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                color: studentMuted,
-              ),
+              state.result?.requestNumber ?? 'Permintaan peminjaman',
+              style: const TextStyle(color: studentMuted),
             ),
-            const SizedBox(height: 10),
-            const Text(
-              'Lab Admin akan meninjau pengajuan Anda. Stok aset belum dikurangi pada tahap ini.',
-              textAlign: TextAlign.center,
-              style: TextStyle(height: 1.45, color: studentMuted),
-            ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 22),
             SizedBox(
               width: double.infinity,
               height: 54,
@@ -361,53 +353,22 @@ class _StudentBorrowRequestView extends StatelessWidget {
     );
   }
 
-  Widget _assetSummary(StudentBorrowFormState state) {
-    final asset = state.asset!;
-    final laboratory = state.laboratory;
-
+  Widget _cardField({required String label, required Widget child}) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 8),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: studentBorder),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: studentSoftLime,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: const Icon(Icons.memory_rounded, color: studentInk),
+          Text(
+            label,
+            style: const TextStyle(fontSize: 10, color: studentMuted),
           ),
-          const SizedBox(width: 13),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  asset.name,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${asset.code} · Stok ${asset.stock}',
-                  style: const TextStyle(fontSize: 11, color: studentMuted),
-                ),
-                const SizedBox(height: 3),
-                Text(
-                  laboratory?.name ?? 'Laboratorium',
-                  style: const TextStyle(fontSize: 11, color: studentMuted),
-                ),
-              ],
-            ),
-          ),
+          child,
         ],
       ),
     );
@@ -422,7 +383,6 @@ class _StudentBorrowRequestView extends StatelessWidget {
     required ValueChanged<DateTime> onSelected,
   }) {
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
       onTap: () async {
         final selected = await showDatePicker(
           context: context,
@@ -430,109 +390,77 @@ class _StudentBorrowRequestView extends StatelessWidget {
           firstDate: firstDate,
           lastDate: lastDate,
         );
-
-        if (selected != null) {
-          onSelected(selected);
-        }
+        if (selected != null) onSelected(selected);
       },
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border.all(color: studentBorder),
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_month_outlined, color: studentMuted),
-            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(fontSize: 11, color: studentMuted),
+                    style: const TextStyle(fontSize: 10, color: studentMuted),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     studentFormatDate(value),
-                    style: const TextStyle(fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded),
+            const Icon(Icons.calendar_month_outlined, size: 18),
           ],
         ),
       ),
     );
   }
 
-  InputDecoration _inputDecoration(String label, String hint) {
+  InputDecoration _decoration(String label, String hint) {
     return InputDecoration(
       labelText: label,
       hintText: hint,
       alignLabelWithHint: true,
       filled: true,
       fillColor: Colors.white,
+      counterText: '',
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(color: studentBorder),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         borderSide: const BorderSide(color: studentBorder),
       ),
-    );
-  }
-
-  Widget _fieldLabel(String text) {
-    return Text(
-      text,
-      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
-    );
-  }
-
-  Widget _error(String message) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFE9E6),
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Text(
-        message,
-        style: const TextStyle(
-          color: Color(0xFFB42318),
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-
-  Widget _reviewCard(List<Widget> children) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: studentBorder),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Column(children: children),
     );
   }
 
   Widget _reviewRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 7),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: studentBorder),
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 105,
+            width: 110,
             child: Text(
               label,
               style: const TextStyle(fontSize: 11, color: studentMuted),

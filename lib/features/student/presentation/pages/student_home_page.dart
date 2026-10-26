@@ -3,9 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/student_service.dart';
+import '../../data/student_notification_service.dart';
 import '../../domain/student_models.dart';
+import '../cubit/student_notification_cubit.dart';
+import '../cubit/student_notification_state.dart';
 import '../cubit/student_data_state.dart';
 import '../cubit/student_home_cubit.dart';
+import '../student_navigation.dart';
 import '../widgets/student_bottom_navigation.dart';
 import '../widgets/student_ui.dart';
 
@@ -14,8 +18,14 @@ class StudentHomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => StudentHomeCubit(StudentService())..load(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(create: (_) => StudentHomeCubit(StudentService())..load()),
+        BlocProvider(
+          create: (_) =>
+              StudentNotificationCubit(StudentNotificationService())..start(),
+        ),
+      ],
       child: const _StudentHomeView(),
     );
   }
@@ -56,14 +66,9 @@ class _StudentHomeView extends StatelessWidget {
   }
 
   Widget _content(BuildContext context, StudentHomeData data) {
-    final availableAssets = data.assets
-        .where((asset) => asset.isAvailable)
-        .toList();
-
     final activeBorrowing = data.borrowRequests
         .where((request) => request.status == 'active')
         .length;
-
     final pendingBorrowing = data.borrowRequests
         .where(
           (request) =>
@@ -72,257 +77,391 @@ class _StudentHomeView extends StatelessWidget {
               request.status == 'waiting_pickup',
         )
         .length;
-
-    final openReports = data.reports
-        .where(
-          (report) =>
-              report.status == 'open' ||
-              report.status == 'acknowledged' ||
-              report.status == 'in_progress',
-        )
-        .length;
-
     final labMap = {
       for (final laboratory in data.laboratories)
         laboratory.id: laboratory.name,
     };
+    final recentAssets = data.assets.take(2).toList(growable: false);
 
     return RefreshIndicator(
       onRefresh: context.read<StudentHomeCubit>().load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 34),
+        padding: const EdgeInsets.fromLTRB(18, 14, 18, 32),
         children: [
           Row(
             children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: studentSoftLime,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: studentInk),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  data.profile.initials,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w900,
+                    color: studentInk,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Selamat datang,',
-                      style: TextStyle(fontSize: 12, color: studentMuted),
-                    ),
-                    const SizedBox(height: 3),
                     Text(
-                      data.profile.firstName,
+                      'Halo, ${data.profile.firstName} 👋',
                       style: const TextStyle(
-                        fontSize: 26,
-                        height: 1.05,
+                        fontSize: 21,
                         fontWeight: FontWeight.w900,
                         color: studentInk,
                       ),
                     ),
+                    const SizedBox(height: 3),
+                    const Text(
+                      'Siap menggunakan laboratorium hari ini?',
+                      style: TextStyle(fontSize: 11, color: studentMuted),
+                    ),
                   ],
                 ),
               ),
-              InkWell(
-                onTap: () => context.go('/student/notifications'),
-                borderRadius: BorderRadius.circular(999),
-                child: Container(
-                  width: 42,
-                  height: 42,
-                  margin: const EdgeInsets.only(right: 8),
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(
-                    Icons.notifications_none_rounded,
-                    color: studentInk,
-                  ),
-                ),
-              ),
-              InkWell(
-                onTap: () => context.go('/student/profile'),
-                borderRadius: BorderRadius.circular(999),
-                child: Container(
-                  width: 46,
-                  height: 46,
-                  decoration: const BoxDecoration(
-                    color: studentInk,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    data.profile.initials,
-                    style: const TextStyle(
-                      color: studentLime,
-                      fontWeight: FontWeight.w900,
+              BlocBuilder<StudentNotificationCubit, StudentNotificationState>(
+                buildWhen: (previous, current) =>
+                    previous.unreadCount != current.unreadCount,
+                builder: (context, notificationState) {
+                  final badge = studentNotificationBadgeLabel(
+                    notificationState.unreadCount,
+                  );
+                  return InkWell(
+                    onTap: () => context.push(
+                      '/student/notifications',
+                      extra: context.read<StudentNotificationCubit>(),
                     ),
-                  ),
-                ),
+                    borderRadius: BorderRadius.circular(999),
+                    child: SizedBox(
+                      width: 42,
+                      height: 42,
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          const Positioned.fill(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                              child: Icon(Icons.notifications_none_rounded),
+                            ),
+                          ),
+                          if (badge != null)
+                            Positioned(
+                              top: -3,
+                              right: -4,
+                              child: Container(
+                                constraints: const BoxConstraints(
+                                  minWidth: 17,
+                                  minHeight: 17,
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                  vertical: 1,
+                                ),
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFFD92D20),
+                                  shape: BoxShape.rectangle,
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(999),
+                                  ),
+                                ),
+                                alignment: Alignment.center,
+                                child: Text(
+                                  badge,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    height: 1,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: studentInk,
-              borderRadius: BorderRadius.circular(26),
+              borderRadius: BorderRadius.circular(24),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            child: Row(
               children: [
-                const Icon(
-                  Icons.qr_code_scanner_rounded,
-                  color: studentLime,
-                  size: 30,
-                ),
-                const SizedBox(height: 20),
-                const Text(
-                  'Temukan alat laboratorium',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Pinjaman Aktif',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFFD4D8CE),
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '$activeBorrowing',
+                        style: const TextStyle(
+                          fontSize: 44,
+                          height: 1,
+                          fontWeight: FontWeight.w900,
+                          color: studentLime,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '$pendingBorrowing Menunggu Persetujuan',
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Color(0xFFD4D8CE),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 6),
-                const Text(
-                  'Lihat aset yang tersedia dan buka detail alat sebelum mengajukan peminjaman.',
-                  style: TextStyle(
-                    color: Color(0xFFC5C9C0),
-                    fontSize: 12,
-                    height: 1.45,
+                Container(
+                  width: 76,
+                  height: 76,
+                  decoration: const BoxDecoration(
+                    color: studentLime,
+                    shape: BoxShape.circle,
                   ),
-                ),
-                const SizedBox(height: 18),
-                FilledButton.icon(
-                  onPressed: () => context.go('/student/assets'),
-                  icon: const Icon(Icons.arrow_outward_rounded),
-                  label: const Text('Buka Katalog'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: studentLime,
-                    foregroundColor: studentInk,
-                    minimumSize: const Size.fromHeight(48),
-                    shape: const StadiumBorder(),
+                  child: const Icon(
+                    Icons.handshake_outlined,
+                    color: studentInk,
+                    size: 34,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 22),
-          const Text(
-            'Aktivitas Saya',
-            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Expanded(
-                child: _metricCard(
-                  'Aktif',
-                  activeBorrowing,
-                  Icons.swap_horiz_rounded,
-                ),
+              _quickAction(
+                icon: Icons.qr_code_scanner_rounded,
+                label: 'Scan QR',
+                onTap: () => context.go('/student/assets'),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _metricCard(
-                  'Menunggu',
-                  pendingBorrowing,
-                  Icons.schedule_rounded,
-                ),
+              _quickAction(
+                icon: Icons.search_rounded,
+                label: 'Cari Peralatan',
+                onTap: () => context.go('/student/assets'),
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _metricCard(
-                  'Laporan',
-                  openReports,
-                  Icons.report_problem_outlined,
-                ),
+              _quickAction(
+                icon: Icons.handshake_outlined,
+                label: 'Pinjaman Saya',
+                onTap: () => context.go('/student/borrowing'),
+              ),
+              _quickAction(
+                icon: Icons.assignment_outlined,
+                label: 'Buat Laporan',
+                onTap: () => context.push('/student/reports/create'),
               ),
             ],
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           Row(
             children: [
               const Expanded(
                 child: Text(
-                  'Aset Tersedia',
-                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+                  'Aktivitas Terbaru',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: studentInk,
+                  ),
                 ),
               ),
               TextButton(
-                onPressed: () => context.go('/student/assets'),
-                child: const Text('Lihat semua'),
+                onPressed: () => context.go('/student/borrowing'),
+                child: const Text('Lihat Semua'),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          if (availableAssets.isEmpty)
-            _emptyAssets()
+          if (recentAssets.isEmpty)
+            _emptyActivity()
           else
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: availableAssets.length > 4
-                  ? 4
-                  : availableAssets.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 10,
-                mainAxisSpacing: 10,
-                childAspectRatio: 0.72,
+            ...recentAssets.map(
+              (asset) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: studentSoftLime,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.inventory_2_outlined, size: 19),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              asset.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              labMap[asset.labId] ?? 'Laboratorium',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 9,
+                                color: studentMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      StudentStatusPill(
+                        status: asset.isAvailable ? 'available' : asset.status,
+                        small: true,
+                      ),
+                    ],
+                  ),
+                ),
               ),
-              itemBuilder: (context, index) {
-                final asset = availableAssets[index];
-
-                return StudentAssetCard(
-                  asset: asset,
-                  labName: labMap[asset.labId] ?? 'Laboratorium',
-                  onTap: () => context.push('/student/assets/${asset.id}'),
-                );
-              },
+            ),
+          const SizedBox(height: 14),
+          const Text(
+            'Informasi Laboratorium',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w900,
+              color: studentInk,
+            ),
+          ),
+          const SizedBox(height: 9),
+          if (data.laboratories.isNotEmpty)
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: studentSoftLime,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.access_time_rounded, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          data.laboratories.first.name,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          '${data.laboratories.first.location} · 08.00–16.00',
+                          style: const TextStyle(
+                            fontSize: 9,
+                            color: studentMuted,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_outward_rounded, size: 18),
+                ],
+              ),
             ),
         ],
       ),
     );
   }
 
-  Widget _metricCard(String label, int value, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(13),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: studentBorder),
+  Widget _quickAction({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(18),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: studentMuted),
-          const SizedBox(height: 12),
-          Text(
-            '$value',
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 10, color: studentMuted),
-          ),
-        ],
+        child: Column(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: studentSoftLime,
+                shape: BoxShape.circle,
+                border: Border.all(color: studentBorder),
+              ),
+              child: Icon(icon, size: 19, color: studentInk),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              style: const TextStyle(
+                fontSize: 8,
+                height: 1.15,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _emptyAssets() {
+  Widget _emptyActivity() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: studentBorder),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
       ),
       child: const Text(
-        'Belum ada aset yang tersedia untuk dipinjam.',
-        textAlign: TextAlign.center,
-        style: TextStyle(color: studentMuted, fontWeight: FontWeight.w700),
+        'Belum ada aktivitas terbaru.',
+        style: TextStyle(color: studentMuted),
       ),
     );
   }

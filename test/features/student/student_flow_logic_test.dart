@@ -10,6 +10,7 @@ import 'package:labflow/features/student/presentation/cubit/student_borrowing_de
 import 'package:labflow/features/student/presentation/cubit/student_borrowing_detail_state.dart';
 import 'package:labflow/features/student/presentation/cubit/student_notification_cubit.dart';
 import 'package:labflow/features/student/presentation/cubit/student_notification_state.dart';
+import 'package:labflow/features/student/presentation/student_navigation.dart';
 import 'package:labflow/features/student/presentation/widgets/student_ui.dart';
 import 'package:mocktail/mocktail.dart';
 
@@ -29,6 +30,46 @@ void main() {
       expect(studentStatusLabel('returned'), 'Dikembalikan');
       expect(studentStatusLabel('rejected'), 'Ditolak');
       expect(studentStatusLabel('cancelled'), 'Dibatalkan');
+    });
+  });
+
+  group('Student navigation targets', () {
+    test('request form path stays separate from document detail paths', () {
+      expect(studentBorrowRequestFormPath, '/student/borrowing/request');
+      expect(
+        studentBorrowingDocumentPath('actual-doc-id'),
+        '/student/borrowing/actual-doc-id',
+      );
+      expect(
+        studentNotificationTargetPath(
+          targetType: 'borrow_request',
+          targetId: 'actual-doc-id',
+        ),
+        '/student/borrowing/actual-doc-id',
+      );
+      expect(() => studentBorrowingDocumentPath(''), throwsArgumentError);
+    });
+
+    test('notification destinations reject empty and unsupported targets', () {
+      expect(
+        studentNotificationTargetPath(
+          targetType: 'borrow_request',
+          targetId: '  ',
+        ),
+        isNull,
+      );
+      expect(
+        studentNotificationTargetPath(targetType: 'other', targetId: 'id-1'),
+        isNull,
+      );
+    });
+
+    test('unread badge omits zero and caps counts above nine', () {
+      expect(studentNotificationBadgeLabel(0), isNull);
+      expect(studentNotificationBadgeLabel(-1), isNull);
+      expect(studentNotificationBadgeLabel(1), '1');
+      expect(studentNotificationBadgeLabel(9), '9');
+      expect(studentNotificationBadgeLabel(10), '9+');
     });
   });
 

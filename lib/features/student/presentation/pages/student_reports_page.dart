@@ -21,8 +21,15 @@ class StudentReportsPage extends StatelessWidget {
   }
 }
 
-class _StudentReportsView extends StatelessWidget {
+class _StudentReportsView extends StatefulWidget {
   const _StudentReportsView();
+
+  @override
+  State<_StudentReportsView> createState() => _StudentReportsViewState();
+}
+
+class _StudentReportsViewState extends State<_StudentReportsView> {
+  String _tab = 'Semua';
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +41,10 @@ class _StudentReportsView extends StatelessWidget {
         backgroundColor: studentLime,
         foregroundColor: studentInk,
         icon: const Icon(Icons.add_rounded),
-        label: const Text('Buat Laporan'),
+        label: const Text(
+          'Buat Laporan',
+          style: TextStyle(fontWeight: FontWeight.w900),
+        ),
       ),
       body: SafeArea(
         bottom: false,
@@ -45,14 +55,12 @@ class _StudentReportsView extends StatelessWidget {
                     state.status == StudentLoadStatus.loading) {
                   return const StudentLoading(message: 'Memuat laporan Anda.');
                 }
-
                 if (state.status == StudentLoadStatus.failure) {
                   return StudentErrorState(
                     message: state.errorMessage,
                     onRetry: context.read<StudentReportsCubit>().load,
                   );
                 }
-
                 return _content(context, state.data ?? const <LabReport>[]);
               },
             ),
@@ -61,24 +69,68 @@ class _StudentReportsView extends StatelessWidget {
   }
 
   Widget _content(BuildContext context, List<LabReport> reports) {
+    final filtered = _filter(reports);
     return RefreshIndicator(
       onRefresh: context.read<StudentReportsCubit>().load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 34),
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 110),
         children: [
-          const StudentPageTitle(
-            title: 'Laporan',
-            subtitle: 'Pantau status laporan masalah laboratorium yang pernah Anda kirim.',
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Laporan',
+                  style: TextStyle(
+                    fontSize: 27,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -.5,
+                  ),
+                ),
+              ),
+              Container(
+                width: 42,
+                height: 42,
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.search_rounded),
+              ),
+            ],
           ),
-          const SizedBox(height: 18),
-          if (reports.isEmpty)
-            _empty()
+          const SizedBox(height: 16),
+          const Text(
+            'Lab yang baik,\nkita jaga bersama.',
+            style: TextStyle(
+              fontSize: 25,
+              height: 1.05,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Pantau laporan dan kabar penanganannya.',
+            style: TextStyle(fontSize: 11, color: studentMuted),
+          ),
+          const SizedBox(height: 15),
+          Row(
+            children: [
+              _tabChip('Semua'),
+              const SizedBox(width: 7),
+              _tabChip('Diproses'),
+              const SizedBox(width: 7),
+              _tabChip('Selesai'),
+            ],
+          ),
+          const SizedBox(height: 14),
+          if (filtered.isEmpty)
+            _empty(context)
           else
-            ...reports.map(
+            ...filtered.map(
               (report) => Padding(
                 padding: const EdgeInsets.only(bottom: 10),
-                child: _card(context, report),
+                child: _reportCard(context, report),
               ),
             ),
         ],
@@ -86,107 +138,152 @@ class _StudentReportsView extends StatelessWidget {
     );
   }
 
-  Widget _card(BuildContext context, LabReport report) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: () => context.push('/student/reports/${report.id}'),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: studentBorder),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    report.reportNumber,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: studentMuted,
+  Widget _tabChip(String label) {
+    final selected = _tab == label;
+    return ChoiceChip(
+      label: Text(label),
+      selected: selected,
+      showCheckmark: false,
+      onSelected: (_) => setState(() => _tab = label),
+      selectedColor: selected && label == 'Semua' ? studentInk : Colors.white,
+      backgroundColor: Colors.white,
+      side: BorderSide(color: selected ? studentInk : studentBorder),
+      labelStyle: TextStyle(
+        fontSize: 10,
+        fontWeight: FontWeight.w800,
+        color: selected && label == 'Semua' ? studentLime : studentInk,
+      ),
+      shape: const StadiumBorder(),
+    );
+  }
+
+  List<LabReport> _filter(List<LabReport> reports) {
+    switch (_tab) {
+      case 'Diproses':
+        return reports
+            .where(
+              (r) => r.status == 'acknowledged' || r.status == 'in_progress',
+            )
+            .toList(growable: false);
+      case 'Selesai':
+        return reports
+            .where((r) => r.status == 'resolved' || r.status == 'closed')
+            .toList(growable: false);
+      default:
+        return reports;
+    }
+  }
+
+  Widget _reportCard(BuildContext context, LabReport report) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(18),
+      child: InkWell(
+        onTap: () => context.push('/student/reports/${report.id}'),
+        borderRadius: BorderRadius.circular(18),
+        child: Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(Icons.wifi_off_rounded, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      report.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: studentSoftLime,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                  child: Text(
-                    studentStatusLabel(report.status),
-                    style: const TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Text(
-              report.title,
-              style: const TextStyle(
-                fontSize: 15,
-                height: 1.3,
-                fontWeight: FontWeight.w900,
+                ],
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '${studentCategoryLabel(report.category)} · ${report.location}',
-              style: const TextStyle(fontSize: 11, color: studentMuted),
-            ),
-            const SizedBox(height: 5),
-            Text(
-              studentFormatDate(report.createdAt),
-              style: const TextStyle(fontSize: 10, color: studentMuted),
-            ),
-            if ((report.adminResponse ?? '').isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: studentSoftLime,
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: Text(
-                  'Tanggapan: ${report.adminResponse}',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    height: 1.4,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+              const SizedBox(height: 6),
+              Text(
+                report.location,
+                style: const TextStyle(fontSize: 9, color: studentMuted),
+              ),
+              const SizedBox(height: 9),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: [
+                  if (report.priority == 'high' ||
+                      report.priority == 'critical')
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: studentPinkSoft,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        studentPriorityLabel(report.priority),
+                        style: const TextStyle(
+                          fontSize: 8,
+                          fontWeight: FontWeight.w800,
+                          color: studentPinkText,
+                        ),
+                      ),
+                    ),
+                  StudentStatusPill(status: report.status, small: true),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Diperbarui ${studentFormatDate(report.updatedAt)}',
+                style: const TextStyle(fontSize: 9, color: studentMuted),
               ),
             ],
-          ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _empty() {
+  Widget _empty(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: studentBorder),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: const Text(
-        'Belum ada laporan yang Anda kirim.',
-        textAlign: TextAlign.center,
-        style: TextStyle(color: studentMuted, fontWeight: FontWeight.w700),
+      child: Column(
+        children: [
+          const Icon(Icons.assignment_outlined, size: 38, color: studentMuted),
+          const SizedBox(height: 10),
+          const Text(
+            'Belum ada laporan',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 5),
+          const Text(
+            'Menemukan alat bermasalah? Sampaikan agar laboratorium tetap siap digunakan.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, height: 1.4, color: studentMuted),
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: () => context.push('/student/reports/create'),
+              style: FilledButton.styleFrom(
+                backgroundColor: studentInk,
+                foregroundColor: Colors.white,
+                shape: const StadiumBorder(),
+              ),
+              child: const Text('Buat Laporan'),
+            ),
+          ),
+        ],
       ),
     );
   }

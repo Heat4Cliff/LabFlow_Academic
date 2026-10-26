@@ -40,7 +40,6 @@ class _StudentProfileView extends StatelessWidget {
                     message: 'Memuat profil mahasiswa.',
                   );
                 }
-
                 if (state.status == StudentLoadStatus.failure ||
                     state.data == null) {
                   return StudentErrorState(
@@ -48,7 +47,6 @@ class _StudentProfileView extends StatelessWidget {
                     onRetry: context.read<StudentProfileCubit>().load,
                   );
                 }
-
                 return _content(context, state.data!);
               },
             ),
@@ -61,54 +59,69 @@ class _StudentProfileView extends StatelessWidget {
       onRefresh: context.read<StudentProfileCubit>().load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 34),
+        padding: const EdgeInsets.fromLTRB(18, 16, 18, 32),
         children: [
           const StudentPageTitle(title: 'Profil'),
           const SizedBox(height: 18),
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: studentInk,
-              borderRadius: BorderRadius.circular(26),
+              color: studentSoftLime,
+              borderRadius: BorderRadius.circular(24),
             ),
             child: Row(
               children: [
                 Container(
                   width: 64,
                   height: 64,
-                  decoration: const BoxDecoration(
-                    color: studentLime,
+                  decoration: BoxDecoration(
+                    color: studentSoftLime,
                     shape: BoxShape.circle,
+                    border: Border.all(color: studentInk),
                   ),
                   alignment: Alignment.center,
                   child: Text(
                     profile.initials,
                     style: const TextStyle(
-                      fontSize: 21,
+                      fontSize: 20,
                       fontWeight: FontWeight.w900,
-                      color: studentInk,
                     ),
                   ),
                 ),
-                const SizedBox(width: 15),
+                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
-                        'Student',
-                        style: TextStyle(
-                          color: Color(0xFFB8BCB3),
-                          fontSize: 11,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
                       Text(
                         profile.displayName,
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 19,
+                          fontSize: 18,
+                          height: 1.15,
                           fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        child: const Text(
+                          'Student',
+                          style: TextStyle(fontSize: 8, color: studentMuted),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        profile.email,
+                        style: const TextStyle(
+                          fontSize: 9,
+                          color: studentMuted,
                         ),
                       ),
                     ],
@@ -118,38 +131,39 @@ class _StudentProfileView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          _info('Email', profile.email),
-          const SizedBox(height: 10),
-          _info(
-            'Status Akun',
-            profile.status == 'active' ? 'Aktif' : profile.status,
-          ),
-          const SizedBox(height: 22),
+          _menu(Icons.manage_accounts_outlined, 'Edit Profil'),
+          _menu(Icons.menu_book_outlined, 'Panduan Aplikasi'),
+          _menu(Icons.tune_rounded, 'Pengaturan'),
+          _menu(Icons.science_outlined, 'Tentang LabFlow'),
+          const SizedBox(height: 18),
           SizedBox(
-            height: 54,
+            height: 50,
             child: OutlinedButton.icon(
               onPressed: () async {
                 final confirmed = await _confirmLogout(context);
-
-                if (confirmed != true || !context.mounted) {
-                  return;
-                }
-
+                if (confirmed != true || !context.mounted) return;
                 await context.read<StudentProfileCubit>().signOut();
-
                 if (!context.mounted) return;
                 context.go('/login');
               },
-              icon: const Icon(Icons.logout_rounded),
-              label: const Text(
-                'Keluar dari Akun',
-                style: TextStyle(fontWeight: FontWeight.w800),
-              ),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFFB42318),
-                side: const BorderSide(color: Color(0xFFB42318)),
+                foregroundColor: studentInk,
+                side: const BorderSide(color: studentBorder),
+                backgroundColor: Colors.white,
                 shape: const StadiumBorder(),
               ),
+              icon: const Icon(Icons.logout_rounded, size: 18),
+              label: const Text(
+                'Keluar',
+                style: TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Center(
+            child: Text(
+              'LabFlow · Versi 1.0.0',
+              style: TextStyle(fontSize: 9, color: studentMuted),
             ),
           ),
         ],
@@ -157,29 +171,18 @@ class _StudentProfileView extends StatelessWidget {
     );
   }
 
-  Widget _info(String label, String value) {
+  Widget _menu(IconData icon, String title) {
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: studentBorder),
-        borderRadius: BorderRadius.circular(18),
+      padding: const EdgeInsets.symmetric(vertical: 14),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: studentBorder)),
       ),
       child: Row(
         children: [
-          Expanded(
-            child: Text(
-              label,
-              style: const TextStyle(color: studentMuted, fontSize: 12),
-            ),
-          ),
-          Flexible(
-            child: Text(
-              value.isEmpty ? '-' : value,
-              textAlign: TextAlign.right,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
-            ),
-          ),
+          Icon(icon, size: 18, color: studentInk),
+          const SizedBox(width: 12),
+          Expanded(child: Text(title, style: const TextStyle(fontSize: 12))),
+          const Icon(Icons.chevron_right_rounded, size: 18),
         ],
       ),
     );
@@ -188,26 +191,28 @@ class _StudentProfileView extends StatelessWidget {
   Future<bool?> _confirmLogout(BuildContext context) {
     return showDialog<bool>(
       context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          backgroundColor: studentPaper,
-          title: const Text('Keluar dari akun?'),
-          content: const Text('Sesi Student pada perangkat ini akan diakhiri.'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Batal'),
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Keluar dari LabFlow?'),
+        content: const Text(
+          'Anda perlu masuk kembali untuk mengakses layanan laboratorium.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Tetap di Sini'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: studentPinkText,
+              foregroundColor: Colors.white,
             ),
-            FilledButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFFB42318),
-              ),
-              child: const Text('Keluar'),
-            ),
-          ],
-        );
-      },
+            child: const Text('Keluar'),
+          ),
+        ],
+      ),
     );
   }
 }

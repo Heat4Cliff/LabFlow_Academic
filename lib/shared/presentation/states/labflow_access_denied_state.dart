@@ -1,17 +1,11 @@
 import 'package:flutter/material.dart';
 
-/// State standar LabFlow ketika pengguna terautentikasi,
-/// tetapi tidak memiliki role atau izin untuk mengakses halaman.
-///
-/// State ini berbeda dengan Suspended Account.
-/// Suspended berarti akun dinonaktifkan, sedangkan Access Denied
-/// berarti akun aktif tetapi tidak memiliki authorization yang sesuai.
 class LabFlowAccessDeniedState extends StatelessWidget {
   const LabFlowAccessDeniedState({
     super.key,
-    this.title = 'Akses ditolak',
-    this.message = 'Akun Anda tidak memiliki izin untuk mengakses halaman ini.',
-    this.actionLabel = 'Kembali',
+    this.title = 'Akses belum diberikan',
+    this.message = 'Anda belum memiliki izin untuk mengakses halaman atau laboratorium ini.',
+    this.actionLabel = 'Kembali ke Home',
     this.onAction,
   });
 
@@ -22,62 +16,57 @@ class LabFlowAccessDeniedState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
+    return SafeArea(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 30),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 88,
-              height: 88,
-              decoration: const BoxDecoration(
-                color: Color(0xFFFFF0CF),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.lock_outline_rounded,
-                size: 40,
-                color: Color(0xFFA86E00),
-              ),
+            const Text(
+              'Akses Laboratorium',
+              style: TextStyle(fontSize: 23, fontWeight: FontWeight.w900),
             ),
-            const SizedBox(height: 22),
+            const SizedBox(height: 20),
+            Container(
+              height: 210,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                color: const Color(0xFFEAFBCB),
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: const Icon(Icons.lock_outline_rounded, size: 68),
+            ),
+            const SizedBox(height: 18),
             Text(
               title,
-              textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 21,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF111111),
+                fontSize: 24,
+                height: 1.05,
+                fontWeight: FontWeight.w900,
               ),
             ),
             const SizedBox(height: 8),
             Text(
               message,
-              textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 14,
+                fontSize: 13,
                 height: 1.45,
-                color: Color(0xFF6B7280),
+                color: Color(0xFF737A70),
               ),
             ),
             if (onAction != null) ...[
-              const SizedBox(height: 24),
+              const SizedBox(height: 22),
               SizedBox(
+                width: double.infinity,
                 height: 50,
-                child: FilledButton.icon(
+                child: FilledButton(
                   onPressed: onAction,
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF111111),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
                     shape: const StadiumBorder(),
                   ),
-                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
-                  label: Text(
-                    actionLabel,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
+                  child: Text(actionLabel),
                 ),
               ),
             ],
