@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../shared/presentation/notifications/labflow_notification.dart';
 import '../../../../shared/presentation/states/labflow_connection_error_state.dart';
 import '../../../../shared/presentation/states/labflow_loading_state.dart';
-import '../../../auth/domain/user_profile.dart';
 import '../../../laboratory/data/laboratory_service.dart';
 import '../../../laboratory/domain/laboratory.dart';
 import '../../data/user_management_service.dart';
+import '../cubit/superadmin_dashboard_cubit.dart';
 import '../widgets/superadmin_bottom_navigation.dart';
 
 class SuperadminDashboardPage extends StatefulWidget {
@@ -19,94 +20,69 @@ class SuperadminDashboardPage extends StatefulWidget {
 }
 
 class _SuperadminDashboardPageState extends State<SuperadminDashboardPage> {
-  final UserManagementService _userService = UserManagementService();
-  final LaboratoryService _laboratoryService = LaboratoryService();
-
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F9EF),
-      body: SafeArea(
-        bottom: false,
-        child: StreamBuilder<List<UserProfile>>(
-          stream: _userService.watchUsers(),
-          builder: (context, userSnapshot) {
-            return StreamBuilder<List<Laboratory>>(
-              stream: _laboratoryService.watchLaboratories(),
-              builder: (context, laboratorySnapshot) {
-                final usersLoading =
-                    userSnapshot.connectionState == ConnectionState.waiting &&
-                    !userSnapshot.hasData;
-
-                final laboratoriesLoading =
-                    laboratorySnapshot.connectionState ==
-                        ConnectionState.waiting &&
-                    !laboratorySnapshot.hasData;
-
-                if (usersLoading || laboratoriesLoading) {
-                  return const LabFlowLoadingState(
-                    title: 'Memuat dashboard',
-                    message: 'Menyiapkan ringkasan sistem LabFlow.',
-                  );
-                }
-
-                if (userSnapshot.hasError) {
-                  return const LabFlowConnectionErrorState(
-                    title: 'Dashboard tidak dapat dimuat',
-                    message:
-                        'Data pengguna tidak dapat diambil saat ini. '
-                        'Periksa koneksi Anda lalu coba lagi.',
-                  );
-                }
-
-                if (laboratorySnapshot.hasError) {
-                  return const LabFlowConnectionErrorState(
-                    title: 'Dashboard tidak dapat dimuat',
-                    message:
-                        'Data laboratorium tidak dapat diambil saat ini. '
-                        'Periksa koneksi Anda lalu coba lagi.',
-                  );
-                }
-
-                final users = userSnapshot.data ?? <UserProfile>[];
-                final laboratories = laboratorySnapshot.data ?? <Laboratory>[];
-
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildHeader(),
-                      const SizedBox(height: 24),
-                      _buildMainStatistics(
-                        laboratoryCount: laboratories.length,
-                        userCount: users.length,
-                      ),
-                      const SizedBox(height: 18),
-                      _buildSecondaryStatistics(),
-                      const SizedBox(height: 26),
-                      const Text(
-                        'Kelola ekosistem',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w800,
-                          color: Color(0xFF111111),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      _buildManagementActions(),
-                      const SizedBox(height: 24),
-                      _buildSyncStatus(laboratoryCount: laboratories.length),
-                      const SizedBox(height: 20),
-                    ],
-                  ),
-                );
-              },
-            );
-          },
+    return BlocProvider(
+      create: (_) =>
+          SuperadminDashboardCubit(UserManagementService(), LaboratoryService())
+            ..start(),
+      child: BlocBuilder<SuperadminDashboardCubit, SuperadminDashboardState>(
+        builder: (context, state) => Scaffold(
+          backgroundColor: const Color(0xFFF6F9EF),
+          body: SafeArea(
+            bottom: false,
+            child: switch (state) {
+              SuperadminDashboardLoading() => const LabFlowLoadingState(
+                title: 'Memuat dashboard',
+                message: 'Menyiapkan ringkasan sistem LabFlow.',
+              ),
+              SuperadminDashboardFailure(:final message) =>
+                LabFlowConnectionErrorState(
+                  title: 'Dashboard tidak dapat dimuat',
+                  message: '$message Periksa koneksi Anda lalu coba lagi.',
+                ),
+              SuperadminDashboardLoaded(:final users, :final labs) =>
+                _buildDashboardContent(users.length, labs),
+            },
+          ),
+          bottomNavigationBar: const SuperadminBottomNavigation(
+            currentIndex: 0,
+          ),
         ),
       ),
-      bottomNavigationBar: const SuperadminBottomNavigation(currentIndex: 0),
+    );
+  }
+
+  Widget _buildDashboardContent(int userCount, List<Laboratory> laboratories) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildHeader(),
+          const SizedBox(height: 24),
+          _buildMainStatistics(
+            laboratoryCount: laboratories.length,
+            userCount: userCount,
+          ),
+          const SizedBox(height: 18),
+          _buildSecondaryStatistics(),
+          const SizedBox(height: 26),
+          const Text(
+            'Kelola ekosistem',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF111111),
+            ),
+          ),
+          const SizedBox(height: 18),
+          _buildManagementActions(),
+          const SizedBox(height: 24),
+          _buildSyncStatus(laboratoryCount: laboratories.length),
+          const SizedBox(height: 20),
+        ],
+      ),
     );
   }
 

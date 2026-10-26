@@ -60,6 +60,40 @@ class LabMembershipService {
     });
   }
 
+  /// Mengambil membership aktif milik Lab Admin yang sedang login.
+  ///
+  /// Query hanya berdasarkan UID agar tidak membutuhkan composite
+  /// index tambahan. Filter active dan role dilakukan di client.
+  Stream<List<LabMembership>> watchCurrentLabAdminMemberships() {
+    final currentUser = _firebaseAuth.currentUser;
+
+    if (currentUser == null) {
+      return Stream<List<LabMembership>>.error(
+        const LabMembershipException(
+          'Sesi Lab Admin tidak ditemukan. Silakan masuk kembali.',
+        ),
+      );
+    }
+
+    return _firestore
+        .collection('lab_memberships')
+        .where('userId', isEqualTo: currentUser.uid)
+        .snapshots()
+        .map((snapshot) {
+          final memberships = snapshot.docs
+              .map(LabMembership.fromDocument)
+              .where(
+                (membership) =>
+                    membership.active && membership.role == 'lab_admin',
+              )
+              .toList();
+
+          memberships.sort((a, b) => a.labId.compareTo(b.labId));
+
+          return memberships;
+        });
+  }
+
   /// Menghubungkan Lab Admin dengan laboratorium.
   Future<void> assignLabAdmin({
     required String userId,
@@ -79,13 +113,10 @@ class LabMembershipService {
 
     await _firestore.runTransaction((transaction) async {
       final userReference = _firestore.collection('users').doc(userId);
-
       final labReference = _firestore.collection('laboratories').doc(labId);
 
       final userDocument = await transaction.get(userReference);
-
       final labDocument = await transaction.get(labReference);
-
       final membershipDocument = await transaction.get(membershipReference);
 
       if (!userDocument.exists) {
@@ -132,6 +163,7 @@ class LabMembershipService {
     });
   }
 
+  /// Menonaktifkan assignment tanpa menghapus riwayat membership.
   Future<void> deactivateMembership(String membershipId) async {
     await _firestore.collection('lab_memberships').doc(membershipId).update({
       'active': false,

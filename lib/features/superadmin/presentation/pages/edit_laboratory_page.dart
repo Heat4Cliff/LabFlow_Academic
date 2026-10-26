@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../shared/presentation/dialogs/labflow_confirmation_dialog.dart';
@@ -8,25 +9,49 @@ import '../../../../shared/presentation/states/labflow_loading_state.dart';
 import '../../../laboratory/data/laboratory_service.dart';
 import '../../../laboratory/domain/laboratory.dart';
 import '../../data/activity_log_service.dart';
+import '../cubit/laboratory_management_action_cubit.dart';
+import '../cubit/laboratory_detail_cubit.dart';
 
-class EditLaboratoryPage extends StatefulWidget {
+class EditLaboratoryPage extends StatelessWidget {
   const EditLaboratoryPage({required this.laboratoryId, super.key});
   final String laboratoryId;
+
   @override
-  State<EditLaboratoryPage> createState() => _EditLaboratoryPageState();
+  Widget build(BuildContext context) => MultiBlocProvider(
+    providers: [
+      BlocProvider(
+        create: (_) => LaboratoryManagementActionCubit(
+          LaboratoryService(),
+          ActivityLogService(),
+        ),
+      ),
+      BlocProvider(
+        create: (_) =>
+            LaboratoryDetailCubit(LaboratoryService())..load(laboratoryId),
+      ),
+    ],
+    child: _EditLaboratoryView(laboratoryId: laboratoryId),
+  );
 }
 
-class _EditLaboratoryPageState extends State<EditLaboratoryPage> {
+class _EditLaboratoryView extends StatefulWidget {
+  const _EditLaboratoryView({required this.laboratoryId});
+
+  final String laboratoryId;
+
+  @override
+  State<_EditLaboratoryView> createState() => _EditLaboratoryPageState();
+}
+
+class _EditLaboratoryPageState extends State<_EditLaboratoryView> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final LaboratoryService _service = LaboratoryService();
-  final ActivityLogService _activityLogService = ActivityLogService();
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _codeController = TextEditingController();
   final TextEditingController _locationController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   bool _initialised = false;
-  bool _isSaving = false;
-  bool _isDeleting = false;
+  bool get _isSaving => context.read<LaboratoryManagementActionCubit>().state;
+  bool get _isDeleting => _isSaving;
   String _status = 'active';
 
   /// Snapshot kondisi awal.
@@ -35,16 +60,7 @@ class _EditLaboratoryPageState extends State<EditLaboratoryPage> {
   /// serta membuat Activity Log yang sesuai.
   String _originalName = '';
   String _originalCode = '';
-  String _originalLocation = '';
-  String _originalDescription = '';
-  String _originalStatus = 'active';
-  late final Future<Laboratory> _laboratoryFuture;
-  @override
-  void initState() {
-    super.initState();
-    _laboratoryFuture = _service.getLaboratory(widget.laboratoryId);
-  }
-
+  Laboratory? _originalLaboratory;
   @override
   void dispose() {
     _nameController.dispose();
@@ -67,9 +83,7 @@ class _EditLaboratoryPageState extends State<EditLaboratoryPage> {
     _status = laboratory.status;
     _originalName = laboratory.name;
     _originalCode = laboratory.code;
-    _originalLocation = laboratory.location;
-    _originalDescription = laboratory.description;
-    _originalStatus = laboratory.status;
+    _originalLaboratory = laboratory;
     _initialised = true;
   }
 
@@ -82,9 +96,6 @@ class _EditLaboratoryPageState extends State<EditLaboratoryPage> {
     if (!valid || _isSaving || _isDeleting) {
       return;
     }
-    setState(() {
-      _isSaving = true;
-    });
     try {
       final newName = _nameController.text.trim();
       final newCode = _codeController.text.trim().toUpperCase();
@@ -92,78 +103,20 @@ class _EditLaboratoryPageState extends State<EditLaboratoryPage> {
       final newDescription = _descriptionController.text.trim();
       final newStatus = _status;
 
-      /// Mengecek apakah data umum berubah.
-      final generalDataChanged =
-          _originalName.trim() != newName ||
-          _originalCode.trim().toUpperCase() != newCode ||
-          _originalLocation.trim() != newLocation ||
-          _originalDescription.trim() != newDescription;
-
-      /// Mengecek apakah status berubah.
-      final statusChanged = _originalStatus != newStatus;
-
-      /// =====================================================
-      /// UPDATE FIRESTORE
-      /// =====================================================
-      await _service.updateLaboratory(
+      await context.read<LaboratoryManagementActionCubit>().updateLaboratory(
         laboratoryId: widget.laboratoryId,
         name: newName,
         code: newCode,
         description: newDescription,
         location: newLocation,
         status: newStatus,
+        original: _originalLaboratory!,
       );
-
-      /// =====================================================
-      /// ACTIVITY LOG — DATA UMUM
-      /// =====================================================
-      if (generalDataChanged) {
-        await _activityLogService.createActivity(
-          type: 'laboratory',
-          title: 'Laboratorium diperbarui',
-          description: '$newCode — $newName berhasil diperbarui.',
-          reference: newCode,
-        );
-      }
-
-      /// =====================================================
-      /// ACTIVITY LOG — STATUS
-      /// =====================================================
-      if (statusChanged) {
-        if (_originalStatus == 'active' && newStatus == 'inactive') {
-          await _activityLogService.createActivity(
-            type: 'laboratory',
-            title: 'Laboratorium dinonaktifkan',
-            description: '$newCode — $newName dinonaktifkan.',
-            reference: newCode,
-          );
-        } else if (_originalStatus == 'inactive' && newStatus == 'active') {
-          await _activityLogService.createActivity(
-            type: 'laboratory',
-            title: 'Laboratorium diaktifkan kembali',
-            description: '$newCode — $newName diaktifkan kembali.',
-            reference: newCode,
-          );
-        } else {
-          await _activityLogService.createActivity(
-            type: 'laboratory',
-            title: 'Status laboratorium diubah',
-            description:
-                'Status $newCode — $newName diubah '
-                'dari ${_statusLabel(_originalStatus)} '
-                'menjadi ${_statusLabel(newStatus)}.',
-            reference: newCode,
-          );
-        }
-      }
 
       /// Memperbarui snapshot lokal setelah
       /// operasi berhasil.
       _originalName = newName;
       _originalCode = newCode;
-      _originalLocation = newLocation;
-      _originalDescription = newDescription;
-      _originalStatus = newStatus;
       if (!mounted) {
         return;
       }
@@ -194,12 +147,6 @@ class _EditLaboratoryPageState extends State<EditLaboratoryPage> {
         type: LabFlowNotificationType.error,
         title: 'Terjadi kesalahan',
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
-      }
     }
   }
 
@@ -233,9 +180,6 @@ class _EditLaboratoryPageState extends State<EditLaboratoryPage> {
     if (!confirmed || !mounted) {
       return;
     }
-    setState(() {
-      _isDeleting = true;
-    });
     try {
       /// Simpan identitas sebelum document dihapus.
       ///
@@ -246,16 +190,10 @@ class _EditLaboratoryPageState extends State<EditLaboratoryPage> {
       /// =====================================================
       /// DELETE FIRESTORE
       /// =====================================================
-      await _service.deleteLaboratory(widget.laboratoryId);
-
-      /// =====================================================
-      /// ACTIVITY LOG
-      /// =====================================================
-      await _activityLogService.createActivity(
-        type: 'laboratory',
-        title: 'Laboratorium dihapus',
-        description: '$deletedCode — $deletedName dihapus dari sistem.',
-        reference: deletedCode,
+      await context.read<LaboratoryManagementActionCubit>().deleteLaboratory(
+        laboratoryId: widget.laboratoryId,
+        name: deletedName,
+        code: deletedCode,
       );
       if (!mounted) {
         return;
@@ -292,25 +230,6 @@ class _EditLaboratoryPageState extends State<EditLaboratoryPage> {
         type: LabFlowNotificationType.error,
         title: 'Penghapusan gagal',
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isDeleting = false;
-        });
-      }
-    }
-  }
-
-  /// Mengubah status internal Firestore
-  /// menjadi label ramah pengguna.
-  String _statusLabel(String status) {
-    switch (status) {
-      case 'active':
-        return 'Aktif';
-      case 'inactive':
-        return 'Tidak Aktif';
-      default:
-        return status;
     }
   }
 
@@ -339,6 +258,12 @@ class _EditLaboratoryPageState extends State<EditLaboratoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    return BlocBuilder<LaboratoryManagementActionCubit, bool>(
+      builder: (context, _) => _buildScaffold(context),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F9EF),
       appBar: AppBar(
@@ -349,16 +274,15 @@ class _EditLaboratoryPageState extends State<EditLaboratoryPage> {
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
-      body: FutureBuilder<Laboratory>(
-        future: _laboratoryFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+      body: BlocBuilder<LaboratoryDetailCubit, LaboratoryDetailState>(
+        builder: (context, state) {
+          if (state is LaboratoryDetailLoading) {
             return const LabFlowLoadingState(
               title: 'Memuat laboratorium',
               message: 'Mengambil data laboratorium yang dipilih.',
             );
           }
-          if (snapshot.hasError) {
+          if (state is LaboratoryDetailFailure) {
             return const LabFlowConnectionErrorState(
               title: 'Laboratorium tidak dapat dimuat',
               message:
@@ -366,18 +290,7 @@ class _EditLaboratoryPageState extends State<EditLaboratoryPage> {
                   'Periksa koneksi Anda lalu coba lagi.',
             );
           }
-          if (snapshot.data == null) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Text(
-                  'Data laboratorium tidak ditemukan.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
-          final laboratory = snapshot.data!;
+          final laboratory = (state as LaboratoryDetailLoaded).laboratory;
           _fillForm(laboratory);
           return _buildForm();
         },

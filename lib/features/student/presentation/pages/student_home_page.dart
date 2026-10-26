@@ -1,233 +1,311 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../shared/presentation/states/labflow_access_denied_state.dart';
-import '../../../../shared/presentation/states/labflow_connection_error_state.dart';
-import '../../../../shared/presentation/states/labflow_loading_state.dart';
-import '../../../../shared/presentation/states/labflow_suspended_account_state.dart';
-import '../../../auth/data/auth_service.dart';
-import '../../../auth/domain/user_profile.dart';
+import '../../data/student_service.dart';
+import '../../domain/student_models.dart';
+import '../cubit/student_data_state.dart';
+import '../cubit/student_home_cubit.dart';
+import '../widgets/student_bottom_navigation.dart';
+import '../widgets/student_ui.dart';
 
-class StudentHomePage extends StatefulWidget {
+class StudentHomePage extends StatelessWidget {
   const StudentHomePage({super.key});
 
   @override
-  State<StudentHomePage> createState() => _StudentHomePageState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) => StudentHomeCubit(StudentService())..load(),
+      child: const _StudentHomeView(),
+    );
+  }
 }
 
-class _StudentHomePageState extends State<StudentHomePage> {
-  final AuthService _authService = AuthService();
-
-  late final Future<UserProfile> _profileFuture;
-
-  @override
-  void initState() {
-    super.initState();
-    _profileFuture = _authService.getCurrentUserProfile();
-  }
-
-  Future<void> _logout() async {
-    await _authService.signOut();
-
-    if (!mounted) {
-      return;
-    }
-
-    context.go('/login');
-  }
-
-  void _goToOwnHome(UserProfile profile) {
-    switch (profile.role) {
-      case 'superadmin':
-        context.go('/superadmin');
-        return;
-
-      case 'lab_admin':
-        context.go('/lab-admin');
-        return;
-
-      default:
-        context.go('/login');
-    }
-  }
+class _StudentHomeView extends StatelessWidget {
+  const _StudentHomeView();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F9EF),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF6F9EF),
-        elevation: 0,
-        title: const Text(
-          'LabFlow.',
-          style: TextStyle(fontWeight: FontWeight.w800),
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Keluar',
-            onPressed: _logout,
-            icon: const Icon(Icons.logout_rounded),
-          ),
-        ],
-      ),
-      body: FutureBuilder<UserProfile>(
-        future: _profileFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const LabFlowLoadingState(
-              title: 'Memuat beranda',
-              message: 'Menyiapkan layanan laboratorium untuk Anda.',
-            );
-          }
-
-          if (snapshot.hasError) {
-            final error = snapshot.error;
-
-            if (error is AuthServiceException && error.isAccountSuspended) {
-              return LabFlowSuspendedAccountState(
-                onAction: () {
-                  context.go('/login');
-                },
+      backgroundColor: studentPaper,
+      bottomNavigationBar: const StudentBottomNavigation(currentIndex: 0),
+      body: SafeArea(
+        bottom: false,
+        child: BlocBuilder<StudentHomeCubit, StudentDataState<StudentHomeData>>(
+          builder: (context, state) {
+            if (state.status == StudentLoadStatus.initial ||
+                state.status == StudentLoadStatus.loading) {
+              return const StudentLoading(
+                message: 'Menyiapkan layanan laboratorium untuk Anda.',
               );
             }
 
-            return const LabFlowConnectionErrorState(
-              title: 'Beranda tidak dapat dimuat',
-              message:
-                  'Data akun Student tidak dapat diambil saat ini. '
-                  'Periksa koneksi Anda lalu coba lagi.',
-            );
-          }
+            if (state.status == StudentLoadStatus.failure ||
+                state.data == null) {
+              return StudentErrorState(
+                message: state.errorMessage,
+                onRetry: context.read<StudentHomeCubit>().load,
+              );
+            }
 
-          final profile = snapshot.data;
-
-          if (profile == null) {
-            return _buildErrorState('Profil pengguna tidak ditemukan.');
-          }
-
-          if (!profile.isStudent) {
-            return LabFlowAccessDeniedState(
-              title: 'Akses Student ditolak',
-              message:
-                  'Akun ini tidak memiliki role Student sehingga '
-                  'tidak dapat mengakses halaman Student.',
-              actionLabel: 'Ke Halaman Saya',
-              onAction: () {
-                _goToOwnHome(profile);
-              },
-            );
-          }
-
-          return _buildStudentContent(profile);
-        },
+            return _content(context, state.data!);
+          },
+        ),
       ),
     );
   }
 
-  Widget _buildStudentContent(UserProfile profile) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _content(BuildContext context, StudentHomeData data) {
+    final availableAssets = data.assets
+        .where((asset) => asset.isAvailable)
+        .toList();
+
+    final activeBorrowing = data.borrowRequests
+        .where((request) => request.status == 'active')
+        .length;
+
+    final pendingBorrowing = data.borrowRequests
+        .where(
+          (request) =>
+              request.status == 'pending' ||
+              request.status == 'approved' ||
+              request.status == 'waiting_pickup',
+        )
+        .length;
+
+    final openReports = data.reports
+        .where(
+          (report) =>
+              report.status == 'open' ||
+              report.status == 'acknowledged' ||
+              report.status == 'in_progress',
+        )
+        .length;
+
+    final labMap = {
+      for (final laboratory in data.laboratories)
+        laboratory.id: laboratory.name,
+    };
+
+    return RefreshIndicator(
+      onRefresh: context.read<StudentHomeCubit>().load,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 34),
         children: [
-          Text(
-            'Halo, ${profile.fullName}',
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF111111),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Selamat datang,',
+                      style: TextStyle(fontSize: 12, color: studentMuted),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      data.profile.firstName,
+                      style: const TextStyle(
+                        fontSize: 26,
+                        height: 1.05,
+                        fontWeight: FontWeight.w900,
+                        color: studentInk,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              InkWell(
+                onTap: () => context.go('/student/profile'),
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  width: 46,
+                  height: 46,
+                  decoration: const BoxDecoration(
+                    color: studentInk,
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    data.profile.initials,
+                    style: const TextStyle(
+                      color: studentLime,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Selamat datang di LabFlow Student.',
-            style: TextStyle(color: Color(0xFF6B7280)),
-          ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           Container(
-            width: double.infinity,
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: const Color(0xFFE2E6DC)),
+              color: studentInk,
+              borderRadius: BorderRadius.circular(26),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                const Icon(
+                  Icons.qr_code_scanner_rounded,
+                  color: studentLime,
+                  size: 30,
+                ),
+                const SizedBox(height: 20),
                 const Text(
-                  'Profil Terverifikasi',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  'Temukan alat laboratorium',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                  ),
                 ),
-                const SizedBox(height: 16),
-                _profileRow('Nama', profile.fullName),
-                _profileRow('Email', profile.email),
-                _profileRow('Role', 'Student'),
-                _profileRow(
-                  'Status',
-                  profile.isActive ? 'Active' : profile.status,
+                const SizedBox(height: 6),
+                const Text(
+                  'Lihat aset yang tersedia dan buka detail alat sebelum mengajukan peminjaman.',
+                  style: TextStyle(
+                    color: Color(0xFFC5C9C0),
+                    fontSize: 12,
+                    height: 1.45,
+                  ),
                 ),
-                _profileRow('UID', profile.uid),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFFEAFBCB),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: const Row(
-              children: [
-                Icon(Icons.verified_user_outlined),
-                SizedBox(width: 14),
-                Expanded(
-                  child: Text(
-                    'Firebase Authentication dan role Student berhasil diverifikasi.',
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                const SizedBox(height: 18),
+                FilledButton.icon(
+                  onPressed: () => context.go('/student/assets'),
+                  icon: const Icon(Icons.arrow_outward_rounded),
+                  label: const Text('Buka Katalog'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: studentLime,
+                    foregroundColor: studentInk,
+                    minimumSize: const Size.fromHeight(48),
+                    shape: const StadiumBorder(),
                   ),
                 ),
               ],
             ),
           ),
+          const SizedBox(height: 22),
+          const Text(
+            'Aktivitas Saya',
+            style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _metricCard(
+                  'Aktif',
+                  activeBorrowing,
+                  Icons.swap_horiz_rounded,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _metricCard(
+                  'Menunggu',
+                  pendingBorrowing,
+                  Icons.schedule_rounded,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _metricCard(
+                  'Laporan',
+                  openReports,
+                  Icons.report_problem_outlined,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Aset Tersedia',
+                  style: TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+                ),
+              ),
+              TextButton(
+                onPressed: () => context.go('/student/assets'),
+                child: const Text('Lihat semua'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (availableAssets.isEmpty)
+            _emptyAssets()
+          else
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: availableAssets.length > 4
+                  ? 4
+                  : availableAssets.length,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 0.72,
+              ),
+              itemBuilder: (context, index) {
+                final asset = availableAssets[index];
+
+                return StudentAssetCard(
+                  asset: asset,
+                  labName: labMap[asset.labId] ?? 'Laboratorium',
+                  onTap: () => context.push('/student/assets/${asset.id}'),
+                );
+              },
+            ),
         ],
       ),
     );
   }
 
-  Widget _profileRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+  Widget _metricCard(String label, int value, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: studentBorder),
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Icon(icon, size: 18, color: studentMuted),
+          const SizedBox(height: 12),
+          Text(
+            '$value',
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: Color(0xFF6B7280),
-            ),
-          ),
-          const SizedBox(height: 3),
-          SelectableText(
-            value,
-            style: const TextStyle(fontSize: 14, color: Color(0xFF111111)),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 10, color: studentMuted),
           ),
         ],
       ),
     );
   }
 
-  /// Digunakan untuk kondisi data tidak tersedia,
-  /// bukan kegagalan authorization atau koneksi.
-  Widget _buildErrorState(String message) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Text(message, textAlign: TextAlign.center),
+  Widget _emptyAssets() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: studentBorder),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: const Text(
+        'Belum ada aset yang tersedia untuk dipinjam.',
+        textAlign: TextAlign.center,
+        style: TextStyle(color: studentMuted, fontWeight: FontWeight.w700),
       ),
     );
   }

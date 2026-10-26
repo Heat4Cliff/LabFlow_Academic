@@ -1,12 +1,35 @@
+import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/widgets/labflow_account_status_gate.dart';
+import '../../features/borrowing/presentation/pages/admin_borrow_request_detail_page.dart';
+import '../../features/borrowing/presentation/pages/admin_borrow_requests_page.dart';
+import '../../features/borrowing/presentation/pages/asset_assignment_page.dart';
+import '../../features/borrowing/presentation/pages/pickup_verification_page.dart';
+import '../../features/borrowing/presentation/pages/return_condition_page.dart';
+import '../../features/borrowing/presentation/pages/return_verification_page.dart';
 import '../../features/dashboard/presentation/pages/dashboard_page.dart';
+import '../../features/lab_admin/presentation/pages/asset_detail_page.dart';
+import '../../features/lab_admin/presentation/pages/asset_management_page.dart';
+import '../../features/lab_admin/presentation/pages/create_asset_page.dart';
+import '../../features/lab_admin/presentation/pages/edit_asset_page.dart';
 import '../../features/lab_admin/presentation/pages/lab_admin_dashboard_page.dart';
+import '../../features/lab_admin/presentation/pages/lab_admin_profile_page.dart';
+import '../../features/maintenance/presentation/pages/create_maintenance_page.dart';
+import '../../features/maintenance/presentation/pages/maintenance_detail_page.dart';
+import '../../features/maintenance/presentation/pages/maintenance_list_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_page.dart';
+import '../../features/reporting/presentation/pages/admin_report_detail_page.dart';
+import '../../features/reporting/presentation/pages/admin_report_list_page.dart';
 import '../../features/splash/presentation/pages/splash_page.dart';
 import '../../features/student/presentation/pages/student_home_page.dart';
+import '../../features/student/presentation/pages/student_asset_detail_page.dart';
+import '../../features/student/presentation/pages/student_borrowing_page.dart';
+import '../../features/student/presentation/pages/student_borrow_request_page.dart';
+import '../../features/student/presentation/pages/student_equipment_page.dart';
+import '../../features/student/presentation/pages/student_profile_page.dart';
+import '../../features/student/presentation/pages/student_reports_page.dart';
 import '../../features/superadmin/presentation/pages/activity_log_page.dart';
 import '../../features/superadmin/presentation/pages/create_laboratory_page.dart';
 import '../../features/superadmin/presentation/pages/create_user_page.dart';
@@ -15,15 +38,13 @@ import '../../features/superadmin/presentation/pages/edit_user_page.dart';
 import '../../features/superadmin/presentation/pages/lab_membership_page.dart';
 import '../../features/superadmin/presentation/pages/laboratory_management_page.dart';
 import '../../features/superadmin/presentation/pages/superadmin_dashboard_page.dart';
-import '../../features/superadmin/presentation/pages/user_management_page.dart';
 import '../../features/superadmin/presentation/pages/superadmin_profile_page.dart';
+import '../../features/superadmin/presentation/pages/user_management_page.dart';
 
 /// Membuat router utama LabFlow.
 ///
-/// Halaman awal tetap ditentukan oleh status first-launch device.
-///
-/// Seluruh route Superadmin melewati account status gate
-/// dengan role `superadmin`.
+/// Protected route menggunakan LabFlowAccountStatusGate
+/// untuk memverifikasi session, status akun, dan role.
 GoRouter createAppRouter({required String initialLocation}) {
   return GoRouter(
     initialLocation: initialLocation,
@@ -69,19 +90,6 @@ GoRouter createAppRouter({required String initialLocation}) {
           );
         },
       ),
-
-      /// Entry Student.
-      GoRoute(
-        path: '/student',
-        builder: (context, state) => const StudentHomePage(),
-      ),
-
-      /// Entry Lab Admin.
-      GoRoute(
-        path: '/lab-admin',
-        builder: (context, state) => const LabAdminDashboardPage(),
-      ),
-
       GoRoute(
         path: '/superadmin/labs',
         builder: (context, state) {
@@ -146,6 +154,285 @@ GoRouter createAppRouter({required String initialLocation}) {
           return const LabFlowAccountStatusGate(
             requiredRole: 'superadmin',
             child: SuperadminProfilePage(),
+          );
+        },
+      ),
+
+      /// Area Student.
+      GoRoute(
+        path: '/student',
+        builder: (context, state) {
+          return const LabFlowAccountStatusGate(
+            requiredRole: 'student',
+            child: StudentHomePage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/student/assets',
+        builder: (context, state) {
+          return const LabFlowAccountStatusGate(
+            requiredRole: 'student',
+            child: StudentEquipmentPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/student/assets/:assetId',
+        builder: (context, state) {
+          final assetId = state.pathParameters['assetId']!;
+
+          return LabFlowAccountStatusGate(
+            requiredRole: 'student',
+            child: StudentAssetDetailPage(assetId: assetId),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/student/borrowing',
+        builder: (context, state) {
+          return const LabFlowAccountStatusGate(
+            requiredRole: 'student',
+            child: StudentBorrowingPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/student/borrowing/request',
+        builder: (context, state) {
+          final assetId = state.uri.queryParameters['assetId']?.trim() ?? '';
+
+          if (assetId.isEmpty) {
+            return const Scaffold(
+              body: Center(child: Text('Aset peminjaman tidak valid.')),
+            );
+          }
+
+          return LabFlowAccountStatusGate(
+            requiredRole: 'student',
+            child: StudentBorrowRequestPage(assetId: assetId),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/student/reports',
+        builder: (context, state) {
+          return const LabFlowAccountStatusGate(
+            requiredRole: 'student',
+            child: StudentReportsPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/student/profile',
+        builder: (context, state) {
+          return const LabFlowAccountStatusGate(
+            requiredRole: 'student',
+            child: StudentProfilePage(),
+          );
+        },
+      ),
+
+      /// Area Lab Admin.
+      GoRoute(
+        path: '/lab-admin',
+        builder: (context, state) {
+          return const LabFlowAccountStatusGate(
+            requiredRole: 'lab_admin',
+            child: LabAdminDashboardPage(),
+          );
+        },
+      ),
+
+      /// Profile Lab Admin.
+      GoRoute(
+        path: '/lab-admin/profile',
+        builder: (context, state) {
+          return const LabFlowAccountStatusGate(
+            requiredRole: 'lab_admin',
+            child: LabAdminProfilePage(),
+          );
+        },
+      ),
+
+      /// Daftar permintaan peminjaman.
+      GoRoute(
+        path: '/lab-admin/borrowing',
+        builder: (context, state) {
+          return const LabFlowAccountStatusGate(
+            requiredRole: 'lab_admin',
+            child: AdminBorrowRequestsPage(),
+          );
+        },
+      ),
+
+      /// Detail permintaan peminjaman.
+      GoRoute(
+        path: '/lab-admin/borrowing/:requestId',
+        builder: (context, state) {
+          final requestId = state.pathParameters['requestId']!;
+
+          return LabFlowAccountStatusGate(
+            requiredRole: 'lab_admin',
+            child: AdminBorrowRequestDetailPage(requestId: requestId),
+          );
+        },
+      ),
+
+      /// Penugasan aset untuk request yang sudah disetujui.
+      GoRoute(
+        path: '/lab-admin/borrowing/:requestId/assign',
+        builder: (context, state) {
+          final requestId = state.pathParameters['requestId']!;
+
+          return LabFlowAccountStatusGate(
+            requiredRole: 'lab_admin',
+            child: AssetAssignmentPage(requestId: requestId),
+          );
+        },
+      ),
+
+      /// Verifikasi penyerahan aset kepada mahasiswa.
+      GoRoute(
+        path: '/lab-admin/borrowing/:requestId/pickup',
+        builder: (context, state) {
+          final requestId = state.pathParameters['requestId']!;
+
+          return LabFlowAccountStatusGate(
+            requiredRole: 'lab_admin',
+            child: PickupVerificationPage(requestId: requestId),
+          );
+        },
+      ),
+
+      /// Penerimaan awal barang yang dikembalikan.
+      GoRoute(
+        path: '/lab-admin/borrowing/:requestId/return',
+        builder: (context, state) {
+          final requestId = state.pathParameters['requestId']!;
+
+          return LabFlowAccountStatusGate(
+            requiredRole: 'lab_admin',
+            child: ReturnVerificationPage(requestId: requestId),
+          );
+        },
+      ),
+
+      /// Pemeriksaan kondisi akhir sebelum borrowing diselesaikan.
+      GoRoute(
+        path: '/lab-admin/borrowing/:requestId/return/inspection',
+        builder: (context, state) {
+          final requestId = state.pathParameters['requestId']!;
+
+          return LabFlowAccountStatusGate(
+            requiredRole: 'lab_admin',
+            child: ReturnConditionPage(requestId: requestId),
+          );
+        },
+      ),
+
+      /// Maintenance Management.
+      GoRoute(
+        path: '/lab-admin/maintenance',
+        builder: (context, state) {
+          return const LabFlowAccountStatusGate(
+            requiredRole: 'lab_admin',
+            child: MaintenanceListPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/lab-admin/maintenance/create',
+        builder: (context, state) {
+          final labId = state.uri.queryParameters['labId'] ?? '';
+          final assetId = state.uri.queryParameters['assetId'];
+          final reportId = state.uri.queryParameters['reportId'];
+          final description = state.uri.queryParameters['description'] ?? '';
+
+          return LabFlowAccountStatusGate(
+            requiredRole: 'lab_admin',
+            child: CreateMaintenancePage(
+              laboratoryId: labId,
+              initialAssetId: assetId,
+              sourceType: reportId == null ? 'manual' : 'report',
+              sourceId: reportId,
+              initialDescription: description,
+            ),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/lab-admin/maintenance/:maintenanceId',
+        builder: (context, state) {
+          final maintenanceId = state.pathParameters['maintenanceId']!;
+
+          return LabFlowAccountStatusGate(
+            requiredRole: 'lab_admin',
+            child: MaintenanceDetailPage(maintenanceId: maintenanceId),
+          );
+        },
+      ),
+
+      /// Report Management.
+      GoRoute(
+        path: '/lab-admin/reports',
+        builder: (context, state) {
+          return const LabFlowAccountStatusGate(
+            requiredRole: 'lab_admin',
+            child: AdminReportListPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/lab-admin/reports/:reportId',
+        builder: (context, state) {
+          final reportId = state.pathParameters['reportId']!;
+
+          return LabFlowAccountStatusGate(
+            requiredRole: 'lab_admin',
+            child: AdminReportDetailPage(reportId: reportId),
+          );
+        },
+      ),
+
+      /// Inventory Lab Admin.
+      GoRoute(
+        path: '/lab-admin/assets',
+        builder: (context, state) {
+          return const LabFlowAccountStatusGate(
+            requiredRole: 'lab_admin',
+            child: AssetManagementPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/lab-admin/assets/create',
+        builder: (context, state) {
+          return const LabFlowAccountStatusGate(
+            requiredRole: 'lab_admin',
+            child: CreateAssetPage(),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/lab-admin/assets/:assetId',
+        builder: (context, state) {
+          final assetId = state.pathParameters['assetId']!;
+
+          return LabFlowAccountStatusGate(
+            requiredRole: 'lab_admin',
+            child: AssetDetailPage(assetId: assetId),
+          );
+        },
+      ),
+      GoRoute(
+        path: '/lab-admin/assets/:assetId/edit',
+        builder: (context, state) {
+          final assetId = state.pathParameters['assetId']!;
+
+          return LabFlowAccountStatusGate(
+            requiredRole: 'lab_admin',
+            child: EditAssetPage(assetId: assetId),
           );
         },
       ),

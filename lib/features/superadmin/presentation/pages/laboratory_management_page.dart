@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:go_router/go_router.dart';
 
@@ -13,21 +14,31 @@ import '../../../laboratory/data/laboratory_service.dart';
 
 import '../../../laboratory/domain/laboratory.dart';
 
+import '../cubit/laboratory_directory_cubit.dart';
+
 import '../widgets/superadmin_bottom_navigation.dart';
 
 enum _LaboratoryFilter { all, active, inactive }
 
-class LaboratoryManagementPage extends StatefulWidget {
+class LaboratoryManagementPage extends StatelessWidget {
   const LaboratoryManagementPage({super.key});
 
   @override
-  State<LaboratoryManagementPage> createState() =>
+  Widget build(BuildContext context) => BlocProvider(
+    create: (_) => LaboratoryDirectoryCubit(LaboratoryService())..start(),
+    child: const _LaboratoryManagementView(),
+  );
+}
+
+class _LaboratoryManagementView extends StatefulWidget {
+  const _LaboratoryManagementView();
+
+  @override
+  State<_LaboratoryManagementView> createState() =>
       _LaboratoryManagementPageState();
 }
 
-class _LaboratoryManagementPageState extends State<LaboratoryManagementPage> {
-  final LaboratoryService _laboratoryService = LaboratoryService();
-
+class _LaboratoryManagementPageState extends State<_LaboratoryManagementView> {
   final TextEditingController _searchController = TextEditingController();
 
   _LaboratoryFilter _selectedFilter = _LaboratoryFilter.all;
@@ -70,75 +81,74 @@ class _LaboratoryManagementPageState extends State<LaboratoryManagementPage> {
 
             /// Data laboratorium realtime dari Firestore.
             Expanded(
-              child: StreamBuilder<List<Laboratory>>(
-                stream: _laboratoryService.watchLaboratories(),
+              child:
+                  BlocBuilder<
+                    LaboratoryDirectoryCubit,
+                    LaboratoryDirectoryState
+                  >(
+                    builder: (context, state) {
+                      if (state is LaboratoryDirectoryLoading) {
+                        return const LabFlowLoadingState(
+                          title: 'Memuat laboratorium',
 
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting &&
-                      !snapshot.hasData) {
-                    return const LabFlowLoadingState(
-                      title: 'Memuat laboratorium',
+                          message: 'Mengambil daftar laboratorium terbaru.',
+                        );
+                      }
 
-                      message: 'Mengambil daftar laboratorium terbaru.',
-                    );
-                  }
+                      if (state is LaboratoryDirectoryFailure) {
+                        return const LabFlowConnectionErrorState(
+                          title: 'Laboratorium tidak dapat dimuat',
 
-                  if (snapshot.hasError) {
-                    return const LabFlowConnectionErrorState(
-                      title: 'Laboratorium tidak dapat dimuat',
+                          message:
+                              'Data laboratorium tidak dapat diambil saat ini. '
+                              'Periksa koneksi Anda lalu coba lagi.',
+                        );
+                      }
 
-                      message:
-                          'Data laboratorium tidak dapat diambil saat ini. '
-                          'Periksa koneksi Anda lalu coba lagi.',
-                    );
-                  }
+                      final loaded = state as LaboratoryDirectoryLoaded;
+                      final laboratories = loaded.laboratories;
+                      final filteredLaboratories = loaded.visibleLaboratories;
 
-                  final laboratories = snapshot.data ?? <Laboratory>[];
+                      if (laboratories.isEmpty) {
+                        return _buildEmptyState();
+                      }
 
-                  final filteredLaboratories = _filterLaboratories(
-                    laboratories,
-                  );
+                      if (filteredLaboratories.isEmpty) {
+                        return const LabFlowNoSearchResultsState(
+                          title: 'Laboratorium tidak ditemukan',
+                          message: 'Coba ubah kata pencarian atau filter yang digunakan.',
+                        );
+                      }
 
-                  if (laboratories.isEmpty) {
-                    return _buildEmptyState();
-                  }
+                      return ListView(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
 
-                  if (filteredLaboratories.isEmpty) {
-                    return const LabFlowNoSearchResultsState(
-                      title: 'Laboratorium tidak ditemukan',
-                      message: 'Coba ubah kata pencarian atau filter yang digunakan.',
-                    );
-                  }
+                        children: [
+                          for (
+                            int index = 0;
 
-                  return ListView(
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 32),
+                            index < filteredLaboratories.length;
 
-                    children: [
-                      for (
-                        int index = 0;
+                            index++
+                          ) ...[
+                            _buildLaboratoryCard(filteredLaboratories[index]),
 
-                        index < filteredLaboratories.length;
+                            if (index != filteredLaboratories.length - 1)
+                              const SizedBox(height: 14),
+                          ],
 
-                        index++
-                      ) ...[
-                        _buildLaboratoryCard(filteredLaboratories[index]),
+                          const SizedBox(height: 22),
 
-                        if (index != filteredLaboratories.length - 1)
-                          const SizedBox(height: 14),
-                      ],
+                          /// Ringkasan sederhana menggunakan
 
-                      const SizedBox(height: 22),
+                          /// data yang tersedia.
+                          _buildSummary(laboratories),
 
-                      /// Ringkasan sederhana menggunakan
-
-                      /// data yang tersedia.
-                      _buildSummary(laboratories),
-
-                      const SizedBox(height: 12),
-                    ],
-                  );
-                },
-              ),
+                          const SizedBox(height: 12),
+                        ],
+                      );
+                    },
+                  ),
             ),
           ],
         ),
@@ -226,9 +236,7 @@ class _LaboratoryManagementPageState extends State<LaboratoryManagementPage> {
             child: TextField(
               controller: _searchController,
 
-              onChanged: (_) {
-                setState(() {});
-              },
+              onChanged: context.read<LaboratoryDirectoryCubit>().setQuery,
 
               textInputAction: TextInputAction.search,
 
@@ -499,30 +507,6 @@ class _LaboratoryManagementPageState extends State<LaboratoryManagementPage> {
     );
   }
 
-  /// Search + filter lokal.
-
-  List<Laboratory> _filterLaboratories(List<Laboratory> laboratories) {
-    final query = _searchController.text.trim().toLowerCase();
-
-    return laboratories.where((laboratory) {
-      final matchesSearch =
-          query.isEmpty ||
-          laboratory.name.toLowerCase().contains(query) ||
-          laboratory.code.toLowerCase().contains(query) ||
-          laboratory.location.toLowerCase().contains(query);
-
-      final matchesFilter = switch (_selectedFilter) {
-        _LaboratoryFilter.all => true,
-
-        _LaboratoryFilter.active => laboratory.isActive,
-
-        _LaboratoryFilter.inactive => !laboratory.isActive,
-      };
-
-      return matchesSearch && matchesFilter;
-    }).toList();
-  }
-
   /// Filter status melalui bottom sheet.
 
   Future<void> _openFilterSheet() async {
@@ -594,12 +578,17 @@ class _LaboratoryManagementPageState extends State<LaboratoryManagementPage> {
       },
     );
 
-    if (result == null) {
+    if (result == null || !mounted) {
       return;
     }
 
     setState(() {
       _selectedFilter = result;
+    });
+    context.read<LaboratoryDirectoryCubit>().setStatus(switch (result) {
+      _LaboratoryFilter.all => 'all',
+      _LaboratoryFilter.active => 'active',
+      _LaboratoryFilter.inactive => 'inactive',
     });
   }
 

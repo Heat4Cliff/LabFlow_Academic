@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../shared/presentation/notifications/labflow_notification.dart';
@@ -7,20 +8,31 @@ import '../../../../shared/presentation/states/labflow_loading_state.dart';
 import '../../../../shared/presentation/states/labflow_no_search_results_state.dart';
 import '../../../auth/domain/user_profile.dart';
 import '../../data/user_management_service.dart';
+import '../cubit/user_directory_cubit.dart';
 import '../widgets/superadmin_bottom_navigation.dart';
 
 enum _UserRoleFilter { all, student, labAdmin, superadmin }
 
 enum _UserStatusFilter { all, active, suspended }
 
-class UserManagementPage extends StatefulWidget {
+class UserManagementPage extends StatelessWidget {
   const UserManagementPage({super.key});
+
   @override
-  State<UserManagementPage> createState() => _UserManagementPageState();
+  Widget build(BuildContext context) => BlocProvider(
+    create: (_) => UserDirectoryCubit(UserManagementService())..start(),
+    child: const _UserManagementView(),
+  );
 }
 
-class _UserManagementPageState extends State<UserManagementPage> {
-  final UserManagementService _userService = UserManagementService();
+class _UserManagementView extends StatefulWidget {
+  const _UserManagementView();
+
+  @override
+  State<_UserManagementView> createState() => _UserManagementPageState();
+}
+
+class _UserManagementPageState extends State<_UserManagementView> {
   final TextEditingController _searchController = TextEditingController();
   _UserRoleFilter _selectedRole = _UserRoleFilter.all;
   _UserStatusFilter _selectedStatus = _UserStatusFilter.all;
@@ -51,17 +63,15 @@ class _UserManagementPageState extends State<UserManagementPage> {
             SizedBox(height: 48, child: _buildRoleFilters()),
             const SizedBox(height: 12),
             Expanded(
-              child: StreamBuilder<List<UserProfile>>(
-                stream: _userService.watchUsers(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting &&
-                      !snapshot.hasData) {
+              child: BlocBuilder<UserDirectoryCubit, UserDirectoryState>(
+                builder: (context, state) {
+                  if (state is UserDirectoryLoading) {
                     return const LabFlowLoadingState(
                       title: 'Memuat pengguna',
                       message: 'Mengambil daftar pengguna terbaru.',
                     );
                   }
-                  if (snapshot.hasError) {
+                  if (state is UserDirectoryFailure) {
                     return const LabFlowConnectionErrorState(
                       title: 'Pengguna tidak dapat dimuat',
                       message:
@@ -69,11 +79,11 @@ class _UserManagementPageState extends State<UserManagementPage> {
                           'Periksa koneksi Anda lalu coba lagi.',
                     );
                   }
-                  final users = snapshot.data ?? <UserProfile>[];
+                  final users = (state as UserDirectoryLoaded).users;
                   if (users.isEmpty) {
                     return _buildEmptyState();
                   }
-                  final filteredUsers = _filterUsers(users);
+                  final filteredUsers = state.visibleUsers;
                   if (filteredUsers.isEmpty) {
                     return const LabFlowNoSearchResultsState(
                       title: 'Pengguna tidak ditemukan',
@@ -173,9 +183,7 @@ class _UserManagementPageState extends State<UserManagementPage> {
           Expanded(
             child: TextField(
               controller: _searchController,
-              onChanged: (_) {
-                setState(() {});
-              },
+              onChanged: context.read<UserDirectoryCubit>().setQuery,
               textInputAction: TextInputAction.search,
               decoration: const InputDecoration(
                 hintText: 'Cari nama atau email...',
@@ -228,6 +236,12 @@ class _UserManagementPageState extends State<UserManagementPage> {
       onTap: () {
         setState(() {
           _selectedRole = value;
+        });
+        context.read<UserDirectoryCubit>().setRole(switch (value) {
+          _UserRoleFilter.all => 'all',
+          _UserRoleFilter.student => 'student',
+          _UserRoleFilter.labAdmin => 'lab_admin',
+          _UserRoleFilter.superadmin => 'superadmin',
         });
       },
       child: AnimatedContainer(
@@ -351,29 +365,6 @@ class _UserManagementPageState extends State<UserManagementPage> {
     );
   }
 
-  /// Search + role + status filtering.
-  List<UserProfile> _filterUsers(List<UserProfile> users) {
-    final query = _searchController.text.trim().toLowerCase();
-    return users.where((user) {
-      final matchesSearch =
-          query.isEmpty ||
-          user.fullName.toLowerCase().contains(query) ||
-          user.email.toLowerCase().contains(query);
-      final matchesRole = switch (_selectedRole) {
-        _UserRoleFilter.all => true,
-        _UserRoleFilter.student => user.role == 'student',
-        _UserRoleFilter.labAdmin => user.role == 'lab_admin',
-        _UserRoleFilter.superadmin => user.role == 'superadmin',
-      };
-      final matchesStatus = switch (_selectedStatus) {
-        _UserStatusFilter.all => true,
-        _UserStatusFilter.active => user.isActive,
-        _UserStatusFilter.suspended => !user.isActive,
-      };
-      return matchesSearch && matchesRole && matchesStatus;
-    }).toList();
-  }
-
   /// Filter status melalui bottom sheet.
   Future<void> _openStatusFilter() async {
     final result = await showModalBottomSheet<_UserStatusFilter>(
@@ -421,11 +412,16 @@ class _UserManagementPageState extends State<UserManagementPage> {
         );
       },
     );
-    if (result == null) {
+    if (result == null || !mounted) {
       return;
     }
     setState(() {
       _selectedStatus = result;
+    });
+    context.read<UserDirectoryCubit>().setStatus(switch (result) {
+      _UserStatusFilter.all => 'all',
+      _UserStatusFilter.active => 'active',
+      _UserStatusFilter.suspended => 'suspended',
     });
   }
 

@@ -1,28 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../shared/presentation/notifications/labflow_notification.dart';
 import '../../../../shared/presentation/states/labflow_connection_error_state.dart';
 import '../../../../shared/presentation/states/labflow_loading_state.dart';
 import '../../../auth/domain/user_profile.dart';
-import '../../data/activity_log_service.dart';
 import '../../data/user_management_service.dart';
+import '../../data/activity_log_service.dart';
+import '../cubit/user_management_action_cubit.dart';
+import '../cubit/user_detail_cubit.dart';
 
-class EditUserPage extends StatefulWidget {
+class EditUserPage extends StatelessWidget {
   const EditUserPage({required this.userId, super.key});
   final String userId;
+
   @override
-  State<EditUserPage> createState() => _EditUserPageState();
+  Widget build(BuildContext context) => MultiBlocProvider(
+    providers: [
+      BlocProvider(
+        create: (_) => UserManagementActionCubit(
+          UserManagementService(),
+          ActivityLogService(),
+        ),
+      ),
+      BlocProvider(
+        create: (_) => UserDetailCubit(UserManagementService())..load(userId),
+      ),
+    ],
+    child: _EditUserView(userId: userId),
+  );
 }
 
-class _EditUserPageState extends State<EditUserPage> {
+class _EditUserView extends StatefulWidget {
+  const _EditUserView({required this.userId});
+
+  final String userId;
+
+  @override
+  State<_EditUserView> createState() => _EditUserPageState();
+}
+
+class _EditUserPageState extends State<_EditUserView> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final UserManagementService _service = UserManagementService();
-  final ActivityLogService _activityLogService = ActivityLogService();
   final TextEditingController _nameController = TextEditingController();
   bool _initialised = false;
-  bool _isSaving = false;
-  bool _isChangingStatus = false;
+  bool get _isSaving => context.read<UserManagementActionCubit>().state;
+  bool get _isChangingStatus => _isSaving;
   String _role = 'student';
   String _status = 'active';
 
@@ -33,13 +57,6 @@ class _EditUserPageState extends State<EditUserPage> {
   String _originalFullName = '';
   String _originalRole = 'student';
   String _originalEmail = '';
-  late final Future<UserProfile> _userFuture;
-  @override
-  void initState() {
-    super.initState();
-    _userFuture = _service.getUser(widget.userId);
-  }
-
   @override
   void dispose() {
     _nameController.dispose();
@@ -71,46 +88,22 @@ class _EditUserPageState extends State<EditUserPage> {
     if (!valid || _isSaving || _isChangingStatus) {
       return;
     }
-    setState(() {
-      _isSaving = true;
-    });
     try {
       final newFullName = _nameController.text.trim();
       final oldFullName = _originalFullName.trim();
       final oldRole = _originalRole;
       final newRole = _role;
-      final nameChanged = oldFullName != newFullName;
-      final roleChanged = oldRole != newRole;
 
       /// Menyimpan perubahan utama terlebih dahulu.
-      await _service.updateUser(
+      await context.read<UserManagementActionCubit>().updateUser(
         userId: widget.userId,
         fullName: newFullName,
         role: newRole,
         status: _status,
+        originalFullName: oldFullName,
+        originalRole: oldRole,
+        email: _originalEmail,
       );
-
-      /// =====================================================
-      /// ACTIVITY LOG
-      /// =====================================================
-      /// Jika nama berubah, catat sebagai update profil.
-      if (nameChanged) {
-        await _activityLogService.logUserUpdated(
-          fullName: newFullName,
-          email: _originalEmail,
-        );
-      }
-
-      /// Jika role berubah, buat event audit terpisah
-      /// agar perubahan hak akses mudah dilacak.
-      if (roleChanged) {
-        await _activityLogService.logUserRoleChanged(
-          fullName: newFullName,
-          email: _originalEmail,
-          oldRole: oldRole,
-          newRole: newRole,
-        );
-      }
 
       /// Memperbarui snapshot lokal.
       ///
@@ -134,12 +127,6 @@ class _EditUserPageState extends State<EditUserPage> {
         type: LabFlowNotificationType.error,
         title: 'Terjadi kesalahan',
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSaving = false;
-        });
-      }
     }
   }
 
@@ -195,34 +182,18 @@ class _EditUserPageState extends State<EditUserPage> {
         );
       },
     );
-    if (confirmed != true) {
+    if (confirmed != true || !mounted) {
       return;
     }
-    setState(() {
-      _isChangingStatus = true;
-    });
+    final actionCubit = context.read<UserManagementActionCubit>();
     try {
-      if (suspending) {
-        /// Menonaktifkan pengguna.
-        await _service.suspendUser(widget.userId);
-
-        /// Activity Log dibuat setelah operasi berhasil.
-        await _activityLogService.logUserSuspended(
-          fullName: _originalFullName,
-          email: _originalEmail,
-        );
-        _status = 'suspended';
-      } else {
-        /// Mengaktifkan kembali pengguna.
-        await _service.activateUser(widget.userId);
-
-        /// Activity Log dibuat setelah operasi berhasil.
-        await _activityLogService.logUserActivated(
-          fullName: _originalFullName,
-          email: _originalEmail,
-        );
-        _status = 'active';
-      }
+      await actionCubit.setUserStatus(
+        userId: widget.userId,
+        fullName: _originalFullName,
+        email: _originalEmail,
+        suspend: suspending,
+      );
+      _status = suspending ? 'suspended' : 'active';
       if (!mounted) return;
       context.pop(suspending ? 'suspended' : 'activated');
     } on UserManagementException catch (error) {
@@ -239,12 +210,6 @@ class _EditUserPageState extends State<EditUserPage> {
         type: LabFlowNotificationType.error,
         title: 'Perubahan status gagal',
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isChangingStatus = false;
-        });
-      }
     }
   }
 
@@ -276,6 +241,12 @@ class _EditUserPageState extends State<EditUserPage> {
 
   @override
   Widget build(BuildContext context) {
+    return BlocBuilder<UserManagementActionCubit, bool>(
+      builder: (context, _) => _buildScaffold(context),
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F9EF),
       appBar: AppBar(
@@ -286,16 +257,15 @@ class _EditUserPageState extends State<EditUserPage> {
           style: TextStyle(fontWeight: FontWeight.w800),
         ),
       ),
-      body: FutureBuilder<UserProfile>(
-        future: _userFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+      body: BlocBuilder<UserDetailCubit, UserDetailState>(
+        builder: (context, state) {
+          if (state is UserDetailLoading) {
             return const LabFlowLoadingState(
               title: 'Memuat pengguna',
               message: 'Mengambil data pengguna yang dipilih.',
             );
           }
-          if (snapshot.hasError) {
+          if (state is UserDetailFailure) {
             return const LabFlowConnectionErrorState(
               title: 'Pengguna tidak dapat dimuat',
               message:
@@ -303,18 +273,7 @@ class _EditUserPageState extends State<EditUserPage> {
                   'Periksa koneksi Anda lalu coba lagi.',
             );
           }
-          if (snapshot.data == null) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Text(
-                  'Data pengguna tidak ditemukan.',
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            );
-          }
-          final profile = snapshot.data!;
+          final profile = (state as UserDetailLoaded).profile;
           _fillForm(profile);
           return _buildForm(profile);
         },

@@ -1,108 +1,69 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../shared/presentation/notifications/labflow_notification.dart';
 import '../../../../shared/presentation/states/labflow_connection_error_state.dart';
 import '../../../../shared/presentation/states/labflow_loading_state.dart';
 import '../../../auth/domain/user_profile.dart';
-import '../../../laboratory/data/lab_membership_service.dart';
 import '../../../laboratory/domain/lab_membership.dart';
 import '../../../laboratory/domain/laboratory.dart';
+import '../../../laboratory/data/lab_membership_service.dart';
 import '../../data/activity_log_service.dart';
+import '../cubit/lab_membership_cubit.dart';
 
-class LabMembershipPage extends StatefulWidget {
+class LabMembershipPage extends StatelessWidget {
   const LabMembershipPage({super.key});
+
   @override
-  State<LabMembershipPage> createState() => _LabMembershipPageState();
+  Widget build(BuildContext context) => BlocProvider(
+    create: (_) =>
+        LabMembershipCubit(LabMembershipService(), ActivityLogService())
+          ..start(),
+    child: const _LabMembershipView(),
+  );
 }
 
-class _LabMembershipPageState extends State<LabMembershipPage> {
-  final LabMembershipService _membershipService = LabMembershipService();
-  final ActivityLogService _activityLogService = ActivityLogService();
+class _LabMembershipView extends StatefulWidget {
+  const _LabMembershipView();
+
+  @override
+  State<_LabMembershipView> createState() => _LabMembershipPageState();
+}
+
+class _LabMembershipPageState extends State<_LabMembershipView> {
   String? _selectedAdminId;
   String? _selectedLabId;
-  bool _isLoading = false;
+  bool get _isLoading => switch (context.read<LabMembershipCubit>().state) {
+    LabMembershipLoaded(:final isMutating) => isMutating,
+    _ => false,
+  };
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F9EF),
-      body: SafeArea(
-        child: StreamBuilder<List<UserProfile>>(
-          stream: _membershipService.watchLabAdmins(),
-          builder: (context, adminSnapshot) {
-            if (adminSnapshot.connectionState == ConnectionState.waiting &&
-                !adminSnapshot.hasData) {
-              return const LabFlowLoadingState(
-                title: 'Memuat Lab Admin',
-                message: 'Mengambil daftar akun Lab Admin.',
-              );
-            }
-            if (adminSnapshot.hasError) {
-              return const LabFlowConnectionErrorState(
-                title: 'Lab Admin tidak dapat dimuat',
-                message:
-                    'Daftar akun Lab Admin tidak dapat diambil saat ini. '
-                    'Periksa koneksi Anda lalu coba lagi.',
-              );
-            }
-            final admins = adminSnapshot.data ?? <UserProfile>[];
-            return StreamBuilder<List<Laboratory>>(
-              stream: _membershipService.watchActiveLaboratories(),
-              builder: (context, laboratorySnapshot) {
-                if (laboratorySnapshot.connectionState ==
-                        ConnectionState.waiting &&
-                    !laboratorySnapshot.hasData) {
-                  return const LabFlowLoadingState(
-                    title: 'Memuat laboratorium',
-                    message: 'Mengambil laboratorium yang tersedia.',
-                  );
-                }
-                if (laboratorySnapshot.hasError) {
-                  return const LabFlowConnectionErrorState(
-                    title: 'Laboratorium tidak dapat dimuat',
-                    message:
-                        'Daftar laboratorium tidak dapat diambil saat ini. '
-                        'Periksa koneksi Anda lalu coba lagi.',
-                  );
-                }
-                final laboratories = laboratorySnapshot.data ?? <Laboratory>[];
-                return StreamBuilder<List<LabMembership>>(
-                  stream: _membershipService.watchMemberships(),
-                  builder: (context, membershipSnapshot) {
-                    if (membershipSnapshot.connectionState ==
-                            ConnectionState.waiting &&
-                        !membershipSnapshot.hasData) {
-                      return const LabFlowLoadingState(
-                        title: 'Memuat membership',
-                        message: 'Mengambil assignment laboratorium terbaru.',
-                      );
-                    }
-                    if (membershipSnapshot.hasError) {
-                      return const LabFlowConnectionErrorState(
-                        title: 'Membership tidak dapat dimuat',
-                        message:
-                            'Data assignment laboratorium tidak dapat diambil saat ini. '
-                            'Periksa koneksi Anda lalu coba lagi.',
-                      );
-                    }
-
-                    /// Hanya membership aktif yang ditampilkan pada
-                    /// section "Assignment Aktif".
-                    ///
-                    /// Membership yang sudah dicabut tetap disimpan
-                    /// di Firestore sebagai histori dengan active = false.
-                    final memberships =
-                        (membershipSnapshot.data ?? <LabMembership>[])
-                            .where((membership) => membership.active)
-                            .toList();
-                    return _buildContent(
-                      admins: admins,
-                      laboratories: laboratories,
-                      memberships: memberships,
-                    );
-                  },
-                );
-              },
-            );
+    return BlocBuilder<LabMembershipCubit, LabMembershipState>(
+      builder: (context, state) => Scaffold(
+        backgroundColor: const Color(0xFFF6F9EF),
+        body: SafeArea(
+          child: switch (state) {
+            LabMembershipLoading() => const LabFlowLoadingState(
+              title: 'Memuat membership',
+              message: 'Mengambil assignment laboratorium terbaru.',
+            ),
+            LabMembershipFailure(:final message) => LabFlowConnectionErrorState(
+              title: 'Data membership tidak dapat dimuat',
+              message: '$message Periksa koneksi Anda lalu coba lagi.',
+            ),
+            LabMembershipLoaded(
+              :final admins,
+              :final laboratories,
+              :final memberships,
+            ) =>
+              _buildContent(
+                admins: admins,
+                laboratories: laboratories,
+                memberships: memberships
+                    .where((membership) => membership.active)
+                    .toList(),
+              ),
           },
         ),
       ),
@@ -645,15 +606,8 @@ class _LabMembershipPageState extends State<LabMembershipPage> {
       );
       return;
     }
-    setState(() {
-      _isLoading = true;
-    });
     try {
-      await _membershipService.assignLabAdmin(
-        userId: _selectedAdminId!,
-        labId: _selectedLabId!,
-      );
-      final activityLogged = await _activityLogService.logMembershipAssigned(
+      final activityLogged = await context.read<LabMembershipCubit>().assign(
         userId: _selectedAdminId!,
         labId: _selectedLabId!,
       );
@@ -681,12 +635,6 @@ class _LabMembershipPageState extends State<LabMembershipPage> {
         type: LabFlowNotificationType.error,
         title: 'Gagal menyimpan membership',
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     }
   }
 
@@ -738,15 +686,14 @@ class _LabMembershipPageState extends State<LabMembershipPage> {
   }
 
   Future<void> _revokeMembership(LabMembership membership) async {
-    setState(() {
-      _isLoading = true;
-    });
     try {
-      await _membershipService.deactivateMembership(membership.id);
-      final activityLogged = await _activityLogService.logMembershipRevoked(
-        userId: membership.userId,
-        labId: membership.labId,
-      );
+      final activityLogged = await context
+          .read<LabMembershipCubit>()
+          .deactivate(
+            userId: membership.userId,
+            labId: membership.labId,
+            membershipId: membership.id,
+          );
       if (!mounted) return;
       if (activityLogged) {
         _showMessage(
@@ -768,12 +715,6 @@ class _LabMembershipPageState extends State<LabMembershipPage> {
         type: LabFlowNotificationType.error,
         title: 'Gagal mencabut akses',
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     }
   }
 

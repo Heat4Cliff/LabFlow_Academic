@@ -1,27 +1,37 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../shared/presentation/notifications/labflow_notification.dart';
 import '../../../../shared/presentation/states/labflow_connection_error_state.dart';
 import '../../../../shared/presentation/states/labflow_loading_state.dart';
 import '../../../../shared/presentation/states/labflow_no_search_results_state.dart';
-import '../../data/activity_log_service.dart';
 import '../../domain/activity_log.dart';
+import '../../data/activity_log_service.dart';
+import '../cubit/activity_log_cubit.dart';
 import '../widgets/superadmin_bottom_navigation.dart';
 
 /// Kategori filter Activity Log.
 /// Semua data tetap dibaca dari Firestore lalu difilter berdasarkan `type`.
 enum _ActivityFilter { all, user, laboratory, borrowing, membership }
 
-class ActivityLogPage extends StatefulWidget {
+class ActivityLogPage extends StatelessWidget {
   const ActivityLogPage({super.key});
 
   @override
-  State<ActivityLogPage> createState() => _ActivityLogPageState();
+  Widget build(BuildContext context) => BlocProvider(
+    create: (_) => ActivityLogCubit(ActivityLogService())..start(),
+    child: const _ActivityLogView(),
+  );
 }
 
-class _ActivityLogPageState extends State<ActivityLogPage> {
-  final ActivityLogService _activityService = ActivityLogService();
+class _ActivityLogView extends StatefulWidget {
+  const _ActivityLogView();
 
+  @override
+  State<_ActivityLogView> createState() => _ActivityLogPageState();
+}
+
+class _ActivityLogPageState extends State<_ActivityLogView> {
   _ActivityFilter _selectedFilter = _ActivityFilter.all;
 
   @override
@@ -49,18 +59,16 @@ class _ActivityLogPageState extends State<ActivityLogPage> {
             _buildFilters(),
             const SizedBox(height: 18),
             Expanded(
-              child: StreamBuilder<List<ActivityLog>>(
-                stream: _activityService.watchActivities(),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting &&
-                      !snapshot.hasData) {
+              child: BlocBuilder<ActivityLogCubit, ActivityLogState>(
+                builder: (context, state) {
+                  if (state is ActivityLogLoading) {
                     return const LabFlowLoadingState(
                       title: 'Memuat aktivitas',
                       message: 'Mengambil riwayat aktivitas LabFlow.',
                     );
                   }
 
-                  if (snapshot.hasError) {
+                  if (state is ActivityLogFailure) {
                     return const LabFlowConnectionErrorState(
                       title: 'Activity Log tidak dapat dimuat',
                       message:
@@ -69,8 +77,9 @@ class _ActivityLogPageState extends State<ActivityLogPage> {
                     );
                   }
 
-                  final activities = snapshot.data ?? <ActivityLog>[];
-                  final filteredActivities = _filterActivities(activities);
+                  final loaded = state as ActivityLogLoaded;
+                  final activities = loaded.activities;
+                  final filteredActivities = loaded.visibleActivities;
 
                   if (activities.isEmpty) {
                     return _buildEmptyState();
@@ -168,6 +177,13 @@ class _ActivityLogPageState extends State<ActivityLogPage> {
       onTap: () {
         setState(() {
           _selectedFilter = value;
+        });
+        context.read<ActivityLogCubit>().setFilter(switch (value) {
+          _ActivityFilter.all => 'all',
+          _ActivityFilter.user => 'user',
+          _ActivityFilter.laboratory => 'laboratory',
+          _ActivityFilter.borrowing => 'borrowing',
+          _ActivityFilter.membership => 'membership',
         });
       },
       child: AnimatedContainer(
@@ -344,23 +360,6 @@ class _ActivityLogPageState extends State<ActivityLogPage> {
       default:
         return Icons.history_rounded;
     }
-  }
-
-  List<ActivityLog> _filterActivities(List<ActivityLog> activities) {
-    return activities.where((activity) {
-      switch (_selectedFilter) {
-        case _ActivityFilter.all:
-          return true;
-        case _ActivityFilter.user:
-          return activity.type == 'user';
-        case _ActivityFilter.laboratory:
-          return activity.type == 'laboratory';
-        case _ActivityFilter.borrowing:
-          return activity.type == 'borrowing';
-        case _ActivityFilter.membership:
-          return activity.type == 'membership';
-      }
-    }).toList();
   }
 
   String _sectionDate(DateTime date) {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -7,21 +8,39 @@ import '../../../../core/validators/auth_validator.dart';
 import '../../../../shared/presentation/notifications/labflow_notification.dart';
 import '../../../../shared/presentation/states/labflow_suspended_account_state.dart';
 import '../../data/auth_service.dart';
+import '../cubit/login_cubit.dart';
+import '../cubit/login_state.dart';
 
-class LoginPage extends StatefulWidget {
+class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
+
   @override
-  State<LoginPage> createState() => _LoginPageState();
+  Widget build(BuildContext context) {
+    return RepositoryProvider<AuthService>(
+      create: (_) => AuthService(),
+      child: BlocProvider(
+        create: (context) => LoginCubit(context.read<AuthService>()),
+        child: const _LoginView(),
+      ),
+    );
+  }
 }
 
-class _LoginPageState extends State<LoginPage> {
+class _LoginView extends StatefulWidget {
+  const _LoginView();
+
+  @override
+  State<_LoginView> createState() => _LoginViewState();
+}
+
+class _LoginViewState extends State<_LoginView> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final AuthService _authService = AuthService();
-  bool _isLoading = false;
+
+  // Visibilitas password hanya memengaruhi tampilan field login.
   bool _obscurePassword = true;
-  bool _showSuspendedAccount = false;
+
   @override
   void dispose() {
     _emailController.dispose();
@@ -29,106 +48,46 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  /// Melakukan proses Login LabFlow.
-  ///
-  /// Tahapan Login:
-  /// 1. Validasi format email dan password.
-  /// 2. Firebase Authentication memverifikasi kredensial.
-  /// 3. Profil pengguna dibaca dari Cloud Firestore.
-  /// 4. Status akun diperiksa.
-  /// 5. User diarahkan berdasarkan role.
-  Future<void> _login() async {
+  /// Memvalidasi form sebelum menyerahkan autentikasi ke Cubit.
+  void _login() {
     FocusScope.of(context).unfocus();
-    final isValid = _formKey.currentState?.validate() ?? false;
-    if (!isValid || _isLoading) {
-      return;
-    }
-    setState(() {
-      _isLoading = true;
-      _showSuspendedAccount = false;
-    });
-    try {
-      final profile = await _authService.signIn(
-        email: _emailController.text,
-        password: _passwordController.text,
-      );
-      if (!mounted) return;
-      switch (profile.role) {
-        case 'superadmin':
-          context.go('/superadmin');
-          break;
-        case 'lab_admin':
-          context.go('/lab-admin');
-          break;
-        case 'student':
-          context.go('/student');
-          break;
-        default:
-          await _authService.signOut();
-          if (!mounted) return;
-          _showNotification(
-            'Role akun tidak dikenali.',
-            title: 'Akses ditolak',
-            type: LabFlowNotificationType.warning,
-          );
-      }
-    } on AuthServiceException catch (error) {
-      if (!mounted) return;
-      if (error.isAccountSuspended) {
-        setState(() {
-          _showSuspendedAccount = true;
-        });
-        return;
-      }
-      _showNotification(
-        error.message,
-        title: 'Login gagal',
-        type: LabFlowNotificationType.warning,
-      );
-    } catch (_) {
-      if (!mounted) return;
-      _showNotification(
-        'Terjadi kesalahan saat proses login.',
-        title: 'Login gagal',
-        type: LabFlowNotificationType.error,
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
 
-  /// Kembali ke form login setelah akun suspended ditampilkan.
-  void _returnToLogin() {
-    FocusScope.of(context).unfocus();
-    _passwordController.clear();
-    setState(() {
-      _showSuspendedAccount = false;
-      _isLoading = false;
-    });
+    final isValid = _formKey.currentState?.validate() ?? false;
+    if (!isValid) return;
+
+    context.read<LoginCubit>().login(
+      email: _emailController.text,
+      password: _passwordController.text,
+    );
   }
 
   /// Membuka WhatsApp Admin Lab bagi mahasiswa
   /// yang belum memiliki akun LabFlow.
   Future<void> _contactAdmin() async {
     final adminNumber = AppConfig.adminWhatsAppNumber.trim();
+
     if (adminNumber.isEmpty) {
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
+
       _showNotification(
         'Nomor WhatsApp Admin Lab belum dikonfigurasi.',
         title: 'Konfigurasi belum lengkap',
         type: LabFlowNotificationType.warning,
       );
+
       return;
     }
+
     const message =
         'Halo Admin Lab, saya ingin meminta bantuan terkait akun LabFlow. '
         'Saat ini saya belum memiliki akun untuk mengakses aplikasi.';
+
     final uri = Uri.https('wa.me', '/$adminNumber', {'text': message});
+
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
+
     if (!opened && mounted) {
       _showNotification(
         'WhatsApp tidak dapat dibuka pada perangkat ini.',
@@ -138,7 +97,6 @@ class _LoginPageState extends State<LoginPage> {
     }
   }
 
-  /// Menampilkan feedback menggunakan floating notification LabFlow.
   void _showNotification(
     String message, {
     required String title,
@@ -154,7 +112,60 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (_showSuspendedAccount) {
+    return BlocConsumer<LoginCubit, LoginState>(
+      listener: _handleLoginState,
+      builder: (context, state) => _buildPage(state),
+    );
+  }
+
+  void _handleLoginState(BuildContext context, LoginState state) {
+    switch (state) {
+      case LoginFailure(isAccountSuspended: true):
+        break;
+      case LoginFailure(:final message, :final isUnexpected):
+        _showNotification(
+          message,
+          title: 'Login gagal',
+          type: isUnexpected
+              ? LabFlowNotificationType.error
+              : LabFlowNotificationType.warning,
+        );
+      case LoginSuccess(:final profile):
+        switch (profile.role) {
+          case 'superadmin':
+            context.go('/superadmin');
+          case 'lab_admin':
+            context.go('/lab-admin');
+          case 'student':
+            context.go('/student');
+          default:
+            _rejectUnknownRole(context);
+        }
+      default:
+        break;
+    }
+  }
+
+  Future<void> _rejectUnknownRole(BuildContext context) async {
+    await context.read<AuthService>().signOut();
+    if (!context.mounted) return;
+
+    context.read<LoginCubit>().reset();
+    _showNotification(
+      'Role akun tidak dikenali.',
+      title: 'Akses ditolak',
+      type: LabFlowNotificationType.warning,
+    );
+  }
+
+  void _returnToLogin() {
+    FocusScope.of(context).unfocus();
+    _passwordController.clear();
+    context.read<LoginCubit>().reset();
+  }
+
+  Widget _buildPage(LoginState state) {
+    if (state is LoginFailure && state.isAccountSuspended) {
       return Scaffold(
         backgroundColor: const Color(0xFFF6F9EF),
         body: SafeArea(
@@ -165,6 +176,9 @@ class _LoginPageState extends State<LoginPage> {
         ),
       );
     }
+
+    final isLoading = state is LoginLoading;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF6F9EF),
       body: SafeArea(
@@ -206,16 +220,16 @@ class _LoginPageState extends State<LoginPage> {
                       key: _formKey,
                       child: Column(
                         children: [
-                          _buildEmailField(),
+                          _buildEmailField(isLoading),
                           const SizedBox(height: 16),
-                          _buildPasswordField(),
+                          _buildPasswordField(isLoading),
                         ],
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _buildLoginButton(),
+                    _buildLoginButton(isLoading),
                     const SizedBox(height: 18),
-                    _buildContactAdmin(),
+                    _buildContactAdmin(isLoading),
                     const SizedBox(height: 20),
                     const Center(
                       child: Text(
@@ -236,7 +250,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  /// Header Login LabFlow.
   Widget _buildHeader() {
     return const SizedBox(
       height: 31,
@@ -257,7 +270,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  /// Ilustrasi laboratorium dari desain Figma.
   Widget _buildIllustration() {
     return ClipRRect(
       borderRadius: BorderRadius.circular(24),
@@ -273,10 +285,10 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  /// Field Email.
-  Widget _buildEmailField() {
+  Widget _buildEmailField(bool isLoading) {
     return TextFormField(
       controller: _emailController,
+      enabled: !isLoading,
       keyboardType: TextInputType.emailAddress,
       textInputAction: TextInputAction.next,
       textCapitalization: TextCapitalization.none,
@@ -292,19 +304,21 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  /// Field Password.
-  Widget _buildPasswordField() {
+  Widget _buildPasswordField(bool isLoading) {
     return TextFormField(
       controller: _passwordController,
+      enabled: !isLoading,
       obscureText: _obscurePassword,
       textInputAction: TextInputAction.done,
       autocorrect: false,
       enableSuggestions: false,
       autovalidateMode: AutovalidateMode.onUserInteraction,
       validator: AuthValidator.validatePassword,
-      onFieldSubmitted: (_) {
-        _login();
-      },
+      onFieldSubmitted: isLoading
+          ? null
+          : (_) {
+              _login();
+            },
       decoration: _inputDecoration(
         label: 'Password',
         hint: '••••••••',
@@ -312,11 +326,13 @@ class _LoginPageState extends State<LoginPage> {
           tooltip: _obscurePassword
               ? 'Tampilkan password'
               : 'Sembunyikan password',
-          onPressed: () {
-            setState(() {
-              _obscurePassword = !_obscurePassword;
-            });
-          },
+          onPressed: isLoading
+              ? null
+              : () {
+                  setState(() {
+                    _obscurePassword = !_obscurePassword;
+                  });
+                },
           icon: Icon(
             _obscurePassword
                 ? Icons.visibility_off_outlined
@@ -328,7 +344,6 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  /// Style reusable untuk Email dan Password.
   InputDecoration _inputDecoration({
     required String label,
     required String hint,
@@ -337,6 +352,7 @@ class _LoginPageState extends State<LoginPage> {
     const normalBorderColor = Color(0xFFD8DDD0);
     const darkColor = Color(0xFF111111);
     const errorColor = Color(0xFFBD3232);
+
     return InputDecoration(
       labelText: label,
       hintText: hint,
@@ -356,6 +372,10 @@ class _LoginPageState extends State<LoginPage> {
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: normalBorderColor),
       ),
+      disabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: normalBorderColor),
+      ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
         borderSide: const BorderSide(color: darkColor, width: 1.4),
@@ -371,16 +391,12 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  /// Tombol Login.
-  ///
-  /// Ketika request Firebase berjalan, tombol
-  /// dinonaktifkan dan menampilkan loading indicator.
-  Widget _buildLoginButton() {
+  Widget _buildLoginButton(bool isLoading) {
     return SizedBox(
       width: double.infinity,
       height: 53,
       child: FilledButton(
-        onPressed: _isLoading ? null : _login,
+        onPressed: isLoading ? null : _login,
         style: FilledButton.styleFrom(
           backgroundColor: const Color(0xFF111111),
           foregroundColor: Colors.white,
@@ -388,7 +404,7 @@ class _LoginPageState extends State<LoginPage> {
           disabledForegroundColor: Colors.white,
           shape: const StadiumBorder(),
         ),
-        child: _isLoading
+        child: isLoading
             ? const SizedBox(
                 width: 22,
                 height: 22,
@@ -412,8 +428,7 @@ class _LoginPageState extends State<LoginPage> {
     );
   }
 
-  /// Bantuan bagi mahasiswa yang belum memiliki akun.
-  Widget _buildContactAdmin() {
+  Widget _buildContactAdmin(bool isLoading) {
     return Center(
       child: Wrap(
         alignment: WrapAlignment.center,
@@ -425,7 +440,7 @@ class _LoginPageState extends State<LoginPage> {
             style: TextStyle(fontSize: 13, color: Color(0xFF6B7280)),
           ),
           TextButton(
-            onPressed: _contactAdmin,
+            onPressed: isLoading ? null : _contactAdmin,
             style: TextButton.styleFrom(
               padding: EdgeInsets.zero,
               minimumSize: Size.zero,

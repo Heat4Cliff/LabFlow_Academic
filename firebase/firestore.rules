@@ -1,0 +1,1197 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // =========================================================
+    // HELPER FUNCTIONS
+    // =========================================================
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function currentUserData() {
+      return get(
+        /databases/$(database)/documents/users/$(request.auth.uid)
+      ).data;
+    }
+
+    function isActive() {
+      return signedIn()
+        && currentUserData().status == 'active';
+    }
+
+    function isSuperadmin() {
+      return isActive()
+        && currentUserData().role == 'superadmin';
+    }
+
+    function isLabAdmin() {
+      return isActive()
+        && currentUserData().role == 'lab_admin';
+    }
+
+    function isStudent() {
+      return isActive()
+        && currentUserData().role == 'student';
+    }
+
+    function laboratoryExists(labId) {
+      return exists(
+        /databases/$(database)/documents/laboratories/$(labId)
+      );
+    }
+
+    function laboratoryIsActive(labId) {
+      return laboratoryExists(labId)
+        && get(
+          /databases/$(database)/documents/laboratories/$(labId)
+        ).data.status == 'active';
+    }
+
+    function hasActiveLabMembership(labId) {
+      return isLabAdmin()
+        && exists(
+          /databases/$(database)/documents/lab_memberships/$(request.auth.uid + '__' + labId)
+        )
+        && get(
+          /databases/$(database)/documents/lab_memberships/$(request.auth.uid + '__' + labId)
+        ).data.userId == request.auth.uid
+        && get(
+          /databases/$(database)/documents/lab_memberships/$(request.auth.uid + '__' + labId)
+        ).data.labId == labId
+        && get(
+          /databases/$(database)/documents/lab_memberships/$(request.auth.uid + '__' + labId)
+        ).data.role == 'lab_admin'
+        && get(
+          /databases/$(database)/documents/lab_memberships/$(request.auth.uid + '__' + labId)
+        ).data.active == true;
+    }
+
+    function validAssetData(data) {
+      return data.keys().hasAll([
+          'labId',
+          'code',
+          'name',
+          'category',
+          'description',
+          'location',
+          'stock',
+          'status',
+          'condition',
+          'qrValue',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'labId',
+          'code',
+          'name',
+          'category',
+          'description',
+          'location',
+          'stock',
+          'status',
+          'condition',
+          'imageUrl',
+          'qrValue',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.labId is string
+        && data.code is string
+        && data.name is string
+        && data.category is string
+        && data.description is string
+        && data.location is string
+        && data.stock is int
+        && data.status is string
+        && data.condition is string
+        && data.qrValue is string
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && (
+          !('imageUrl' in data)
+          || data.imageUrl is string
+        )
+        && data.labId.size() > 0
+        && data.code.size() > 0
+        && data.name.size() > 0
+        && data.category.size() > 0
+        && data.location.size() > 0
+        && data.stock >= 0
+        && data.status in [
+          'available',
+          'borrowed',
+          'maintenance',
+          'inactive'
+        ]
+        && data.condition in [
+          'good',
+          'minor_damage',
+          'damaged'
+        ];
+    }
+
+
+    function validBorrowRequestData(data) {
+      return data.keys().hasAll([
+          'requestNumber',
+          'studentId',
+          'labId',
+          'purpose',
+          'borrowDate',
+          'expectedReturnDate',
+          'status',
+          'studentNote',
+          'approvedBy',
+          'approvedAt',
+          'rejectionReason',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'requestNumber',
+          'studentId',
+          'labId',
+          'purpose',
+          'borrowDate',
+          'expectedReturnDate',
+          'status',
+          'studentNote',
+          'approvedBy',
+          'approvedAt',
+          'rejectionReason',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.requestNumber is string
+        && data.studentId is string
+        && data.labId is string
+        && data.purpose is string
+        && data.borrowDate is timestamp
+        && data.expectedReturnDate is timestamp
+        && data.status is string
+        && (data.studentNote == null || data.studentNote is string)
+        && (data.approvedBy == null || data.approvedBy is string)
+        && (data.approvedAt == null || data.approvedAt is timestamp)
+        && (data.rejectionReason == null || data.rejectionReason is string)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.requestNumber.size() > 0
+        && data.studentId.size() > 0
+        && data.labId.size() > 0
+        && data.purpose.size() >= 3
+        && data.purpose.size() <= 300
+        && (
+          data.studentNote == null
+          || data.studentNote.size() <= 1000
+        )
+        && data.expectedReturnDate >= data.borrowDate
+        && data.status in [
+          'pending',
+          'approved',
+          'waiting_pickup',
+          'active',
+          'returned',
+          'rejected',
+          'cancelled'
+        ];
+    }
+
+
+    function validBorrowingAssignmentData(data) {
+      return data.keys().hasAll([
+          'requestId',
+          'requestNumber',
+          'requestItemId',
+          'itemId',
+          'itemName',
+          'studentId',
+          'labId',
+          'assetId',
+          'assetCode',
+          'assetName',
+          'quantity',
+          'borrowDate',
+          'expectedReturnDate',
+          'status',
+          'assignedBy',
+          'assignedAt',
+          'pickupVerifiedBy',
+          'pickupVerifiedAt',
+          'returnedAt',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'requestId',
+          'requestNumber',
+          'requestItemId',
+          'itemId',
+          'itemName',
+          'studentId',
+          'labId',
+          'assetId',
+          'assetCode',
+          'assetName',
+          'quantity',
+          'borrowDate',
+          'expectedReturnDate',
+          'status',
+          'assignedBy',
+          'assignedAt',
+          'pickupVerifiedBy',
+          'pickupVerifiedAt',
+          'returnedAt',
+          'returnCondition',
+          'returnNote',
+          'returnVerifiedBy',
+          'returnVerifiedAt',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.requestId is string
+        && data.requestNumber is string
+        && data.requestItemId is string
+        && data.itemId is string
+        && data.itemName is string
+        && data.studentId is string
+        && data.labId is string
+        && data.assetId is string
+        && data.assetCode is string
+        && data.assetName is string
+        && data.quantity is int
+        && data.quantity >= 1
+        && data.borrowDate is timestamp
+        && data.expectedReturnDate is timestamp
+        && data.expectedReturnDate >= data.borrowDate
+        && data.status is string
+        && data.status in [
+          'waiting_pickup',
+          'active',
+          'returned'
+        ]
+        && data.assignedBy is string
+        && data.assignedAt is timestamp
+        && (data.pickupVerifiedBy == null || data.pickupVerifiedBy is string)
+        && (data.pickupVerifiedAt == null || data.pickupVerifiedAt is timestamp)
+        && (data.returnedAt == null || data.returnedAt is timestamp)
+        && (
+          !('returnCondition' in data)
+          || data.returnCondition == null
+          || (
+            data.returnCondition is string
+            && data.returnCondition in [
+              'good',
+              'minor_damage',
+              'damaged',
+              'lost'
+            ]
+          )
+        )
+        && (
+          !('returnNote' in data)
+          || data.returnNote == null
+          || data.returnNote is string
+        )
+        && (
+          !('returnVerifiedBy' in data)
+          || data.returnVerifiedBy == null
+          || data.returnVerifiedBy is string
+        )
+        && (
+          !('returnVerifiedAt' in data)
+          || data.returnVerifiedAt == null
+          || data.returnVerifiedAt is timestamp
+        )
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.requestId.size() > 0
+        && data.requestNumber.size() > 0
+        && data.requestItemId.size() > 0
+        && data.studentId.size() > 0
+        && data.labId.size() > 0
+        && data.assetId.size() > 0;
+    }
+
+
+    function validReportData(data) {
+      return data.keys().hasAll([
+          'reportNumber',
+          'reporterId',
+          'labId',
+          'assetId',
+          'category',
+          'title',
+          'description',
+          'location',
+          'severity',
+          'priority',
+          'status',
+          'assignedTo',
+          'adminResponse',
+          'createdAt',
+          'acknowledgedAt',
+          'resolvedAt',
+          'closedAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'reportNumber',
+          'reporterId',
+          'labId',
+          'assetId',
+          'category',
+          'title',
+          'description',
+          'location',
+          'severity',
+          'priority',
+          'status',
+          'assignedTo',
+          'adminResponse',
+          'createdAt',
+          'acknowledgedAt',
+          'resolvedAt',
+          'closedAt',
+          'updatedAt'
+        ])
+        && data.reportNumber is string
+        && data.reportNumber.size() > 0
+        && data.reporterId is string
+        && data.reporterId.size() > 0
+        && data.labId is string
+        && data.labId.size() > 0
+        && (data.assetId == null || data.assetId is string)
+        && data.category is string
+        && data.category in [
+          'asset_damage',
+          'asset_lost',
+          'network',
+          'computer',
+          'software',
+          'facility',
+          'electricity',
+          'other'
+        ]
+        && data.title is string
+        && data.title.size() > 0
+        && data.description is string
+        && data.description.size() > 0
+        && data.location is string
+        && data.location.size() > 0
+        && data.severity is string
+        && data.severity in [
+          'normal',
+          'urgent'
+        ]
+        && data.priority is string
+        && data.priority in [
+          'low',
+          'medium',
+          'high',
+          'critical'
+        ]
+        && data.status is string
+        && data.status in [
+          'open',
+          'acknowledged',
+          'in_progress',
+          'resolved',
+          'rejected',
+          'closed'
+        ]
+        && (data.assignedTo == null || data.assignedTo is string)
+        && (data.adminResponse == null || data.adminResponse is string)
+        && data.createdAt is timestamp
+        && (data.acknowledgedAt == null || data.acknowledgedAt is timestamp)
+        && (data.resolvedAt == null || data.resolvedAt is timestamp)
+        && (data.closedAt == null || data.closedAt is timestamp)
+        && data.updatedAt is timestamp;
+    }
+
+
+    function validMaintenanceData(data) {
+      return data.keys().hasAll([
+          'labId',
+          'assetId',
+          'assetCode',
+          'assetName',
+          'quantity',
+          'condition',
+          'description',
+          'status',
+          'sourceType',
+          'sourceId',
+          'createdBy',
+          'startedBy',
+          'startedAt',
+          'resolution',
+          'resolutionNote',
+          'completedBy',
+          'completedAt',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'labId',
+          'assetId',
+          'assetCode',
+          'assetName',
+          'quantity',
+          'condition',
+          'description',
+          'status',
+          'sourceType',
+          'sourceId',
+          'createdBy',
+          'startedBy',
+          'startedAt',
+          'resolution',
+          'resolutionNote',
+          'completedBy',
+          'completedAt',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.labId is string
+        && data.assetId is string
+        && data.assetCode is string
+        && data.assetName is string
+        && data.quantity is int
+        && data.quantity >= 1
+        && data.condition is string
+        && data.condition in [
+          'minor_damage',
+          'damaged'
+        ]
+        && data.description is string
+        && data.description.size() > 0
+        && data.status is string
+        && data.status in [
+          'pending',
+          'in_progress',
+          'completed'
+        ]
+        && data.sourceType is string
+        && data.sourceType in [
+          'manual',
+          'return',
+          'report'
+        ]
+        && (data.sourceId == null || data.sourceId is string)
+        && data.createdBy is string
+        && (data.startedBy == null || data.startedBy is string)
+        && (data.startedAt == null || data.startedAt is timestamp)
+        && (
+          data.resolution == null
+          || (
+            data.resolution is string
+            && data.resolution in [
+              'repaired',
+              'unrepairable'
+            ]
+          )
+        )
+        && (
+          data.resolutionNote == null
+          || data.resolutionNote is string
+        )
+        && (data.completedBy == null || data.completedBy is string)
+        && (data.completedAt == null || data.completedAt is timestamp)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp
+        && data.labId.size() > 0
+        && data.assetId.size() > 0
+        && data.assetName.size() > 0;
+    }
+
+
+
+    // =========================================================
+    // USERS
+    // =========================================================
+
+    match /users/{userId} {
+      allow read: if signedIn()
+        && (
+          request.auth.uid == userId
+          || isSuperadmin()
+        );
+
+      allow create, update, delete:
+        if isSuperadmin();
+    }
+
+
+    // =========================================================
+    // LABORATORIES
+    // =========================================================
+
+    match /laboratories/{labId} {
+      allow read:
+        if isActive();
+
+      allow create, update, delete:
+        if isSuperadmin();
+    }
+
+
+    // =========================================================
+    // LAB MEMBERSHIPS
+    // =========================================================
+
+    match /lab_memberships/{membershipId} {
+      allow read: if isActive()
+        && (
+          isSuperadmin()
+          || resource.data.userId == request.auth.uid
+        );
+
+      allow create, update, delete:
+        if isSuperadmin();
+    }
+
+
+    // =========================================================
+    // BORROW REQUESTS
+    // =========================================================
+
+    match /borrow_requests/{requestId} {
+      allow get, list: if
+        isSuperadmin()
+        || (isStudent() && resource.data.studentId == request.auth.uid)
+        || hasActiveLabMembership(resource.data.labId);
+
+      allow create: if
+        isStudent()
+        && validBorrowRequestData(request.resource.data)
+        && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.approvedBy == null
+        && request.resource.data.approvedAt == null
+        && request.resource.data.rejectionReason == null
+        && laboratoryIsActive(request.resource.data.labId);
+
+      allow update: if
+        validBorrowRequestData(request.resource.data)
+        && request.resource.data.requestNumber == resource.data.requestNumber
+        && request.resource.data.studentId == resource.data.studentId
+        && request.resource.data.labId == resource.data.labId
+        && request.resource.data.purpose == resource.data.purpose
+        && request.resource.data.borrowDate == resource.data.borrowDate
+        && request.resource.data.expectedReturnDate == resource.data.expectedReturnDate
+        && request.resource.data.studentNote == resource.data.studentNote
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (
+          (
+            hasActiveLabMembership(resource.data.labId)
+            && resource.data.status == 'pending'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'approvedBy',
+              'approvedAt',
+              'rejectionReason',
+              'updatedAt'
+            ])
+            && (
+              (
+                request.resource.data.status == 'approved'
+                && request.resource.data.approvedBy == request.auth.uid
+                && request.resource.data.approvedAt is timestamp
+                && request.resource.data.rejectionReason == null
+              )
+              ||
+              (
+                request.resource.data.status == 'rejected'
+                && request.resource.data.approvedBy == resource.data.approvedBy
+                && request.resource.data.approvedAt == resource.data.approvedAt
+                && request.resource.data.rejectionReason is string
+                && request.resource.data.rejectionReason.size() > 0
+              )
+            )
+          )
+          ||
+          (
+            hasActiveLabMembership(resource.data.labId)
+            && resource.data.status == 'approved'
+            && request.resource.data.status == 'waiting_pickup'
+            && request.resource.data.approvedBy == resource.data.approvedBy
+            && request.resource.data.approvedAt == resource.data.approvedAt
+            && request.resource.data.rejectionReason == resource.data.rejectionReason
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'updatedAt'
+            ])
+          )
+          ||
+          (
+            hasActiveLabMembership(resource.data.labId)
+            && resource.data.status == 'waiting_pickup'
+            && request.resource.data.status == 'active'
+            && request.resource.data.approvedBy == resource.data.approvedBy
+            && request.resource.data.approvedAt == resource.data.approvedAt
+            && request.resource.data.rejectionReason == resource.data.rejectionReason
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'updatedAt'
+            ])
+          )
+          ||
+          (
+            hasActiveLabMembership(resource.data.labId)
+            && resource.data.status == 'active'
+            && request.resource.data.status == 'returned'
+            && request.resource.data.approvedBy == resource.data.approvedBy
+            && request.resource.data.approvedAt == resource.data.approvedAt
+            && request.resource.data.rejectionReason == resource.data.rejectionReason
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'updatedAt'
+            ])
+          )
+          ||
+          (
+            isStudent()
+            && resource.data.studentId == request.auth.uid
+            && resource.data.status == 'pending'
+            && request.resource.data.status == 'cancelled'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if false;
+
+      match /items/{itemId} {
+        allow get, list: if
+          isSuperadmin()
+          || (
+            isStudent()
+            && get(
+              /databases/$(database)/documents/borrow_requests/$(requestId)
+            ).data.studentId == request.auth.uid
+          )
+          || hasActiveLabMembership(
+            get(
+              /databases/$(database)/documents/borrow_requests/$(requestId)
+            ).data.labId
+          );
+
+        allow create: if
+          isStudent()
+          && getAfter(
+            /databases/$(database)/documents/borrow_requests/$(requestId)
+          ).data.studentId == request.auth.uid
+          && getAfter(
+            /databases/$(database)/documents/borrow_requests/$(requestId)
+          ).data.status == 'pending'
+          && request.resource.data.keys().hasAll([
+            'itemId',
+            'itemName',
+            'quantity',
+            'requestedAssetId'
+          ])
+          && request.resource.data.keys().hasOnly([
+            'itemId',
+            'itemName',
+            'quantity',
+            'requestedAssetId'
+          ])
+          && request.resource.data.itemId is string
+          && request.resource.data.itemName is string
+          && request.resource.data.quantity is int
+          && request.resource.data.quantity >= 1
+          && request.resource.data.requestedAssetId is string
+          && request.resource.data.itemId ==
+            request.resource.data.requestedAssetId
+          && exists(
+            /databases/$(database)/documents/assets/$(request.resource.data.requestedAssetId)
+          )
+          && get(
+            /databases/$(database)/documents/assets/$(request.resource.data.requestedAssetId)
+          ).data.labId == getAfter(
+            /databases/$(database)/documents/borrow_requests/$(requestId)
+          ).data.labId
+          && get(
+            /databases/$(database)/documents/assets/$(request.resource.data.requestedAssetId)
+          ).data.name == request.resource.data.itemName
+          && get(
+            /databases/$(database)/documents/assets/$(request.resource.data.requestedAssetId)
+          ).data.status == 'available'
+          && get(
+            /databases/$(database)/documents/assets/$(request.resource.data.requestedAssetId)
+          ).data.condition != 'damaged'
+          && get(
+            /databases/$(database)/documents/assets/$(request.resource.data.requestedAssetId)
+          ).data.stock >= request.resource.data.quantity;
+
+        allow update, delete: if false;
+      }
+    }
+
+
+    // =========================================================
+    // BORROWINGS
+    // =========================================================
+
+    // Satu dokumen borrowing mewakili satu aset yang dialokasikan untuk
+    // satu item request. Struktur ini juga menjaga pemeriksaan hard-delete
+    // AssetService tetap dapat menggunakan query top-level `assetId`.
+    match /borrowings/{borrowingId} {
+      allow get, list: if
+        isSuperadmin()
+        || hasActiveLabMembership(resource.data.labId);
+
+      allow create: if
+        validBorrowingAssignmentData(request.resource.data)
+        && hasActiveLabMembership(request.resource.data.labId)
+        && request.resource.data.assignedBy == request.auth.uid
+        && request.resource.data.status == 'waiting_pickup'
+        && request.resource.data.pickupVerifiedBy == null
+        && request.resource.data.pickupVerifiedAt == null
+        && request.resource.data.returnedAt == null
+        && getAfter(
+          /databases/$(database)/documents/borrow_requests/$(request.resource.data.requestId)
+        ).data.status == 'waiting_pickup'
+        && getAfter(
+          /databases/$(database)/documents/borrow_requests/$(request.resource.data.requestId)
+        ).data.labId == request.resource.data.labId
+        && getAfter(
+          /databases/$(database)/documents/borrow_requests/$(request.resource.data.requestId)
+        ).data.studentId == request.resource.data.studentId
+        && getAfter(
+          /databases/$(database)/documents/borrow_requests/$(request.resource.data.requestId)
+        ).data.requestNumber == request.resource.data.requestNumber
+        && getAfter(
+          /databases/$(database)/documents/assets/$(request.resource.data.assetId)
+        ).data.labId == request.resource.data.labId;
+
+      // Pickup Verification dan Return Inspection.
+      allow update: if
+        validBorrowingAssignmentData(request.resource.data)
+        && hasActiveLabMembership(resource.data.labId)
+        && request.resource.data.requestId == resource.data.requestId
+        && request.resource.data.requestNumber == resource.data.requestNumber
+        && request.resource.data.requestItemId == resource.data.requestItemId
+        && request.resource.data.itemId == resource.data.itemId
+        && request.resource.data.itemName == resource.data.itemName
+        && request.resource.data.studentId == resource.data.studentId
+        && request.resource.data.labId == resource.data.labId
+        && request.resource.data.assetId == resource.data.assetId
+        && request.resource.data.assetCode == resource.data.assetCode
+        && request.resource.data.assetName == resource.data.assetName
+        && request.resource.data.quantity == resource.data.quantity
+        && request.resource.data.borrowDate == resource.data.borrowDate
+        && request.resource.data.expectedReturnDate == resource.data.expectedReturnDate
+        && request.resource.data.assignedBy == resource.data.assignedBy
+        && request.resource.data.assignedAt == resource.data.assignedAt
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (
+          (
+            resource.data.status == 'waiting_pickup'
+            && request.resource.data.status == 'active'
+            && resource.data.pickupVerifiedBy == null
+            && resource.data.pickupVerifiedAt == null
+            && request.resource.data.pickupVerifiedBy == request.auth.uid
+            && request.resource.data.pickupVerifiedAt is timestamp
+            && request.resource.data.returnedAt == null
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'pickupVerifiedBy',
+              'pickupVerifiedAt',
+              'updatedAt'
+            ])
+            && getAfter(
+              /databases/$(database)/documents/borrow_requests/$(resource.data.requestId)
+            ).data.status == 'active'
+          )
+          ||
+          (
+            resource.data.status == 'active'
+            && request.resource.data.status == 'returned'
+            && request.resource.data.pickupVerifiedBy == resource.data.pickupVerifiedBy
+            && request.resource.data.pickupVerifiedAt == resource.data.pickupVerifiedAt
+            && request.resource.data.returnedAt is timestamp
+            && request.resource.data.returnCondition is string
+            && request.resource.data.returnCondition in [
+              'good',
+              'minor_damage',
+              'damaged',
+              'lost'
+            ]
+            && (
+              request.resource.data.returnNote == null
+              || request.resource.data.returnNote is string
+            )
+            && request.resource.data.returnVerifiedBy == request.auth.uid
+            && request.resource.data.returnVerifiedAt is timestamp
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'returnedAt',
+              'returnCondition',
+              'returnNote',
+              'returnVerifiedBy',
+              'returnVerifiedAt',
+              'updatedAt'
+            ])
+            && getAfter(
+              /databases/$(database)/documents/borrow_requests/$(resource.data.requestId)
+            ).data.status == 'returned'
+          )
+        )
+        && getAfter(
+          /databases/$(database)/documents/borrow_requests/$(resource.data.requestId)
+        ).data.labId == resource.data.labId;
+
+      allow delete: if false;
+    }
+
+
+    // =========================================================
+    // REPORTS
+    // =========================================================
+
+    match /reports/{reportId} {
+      allow get, list: if
+        isSuperadmin()
+        || (
+          isStudent()
+          && resource.data.reporterId == request.auth.uid
+        )
+        || hasActiveLabMembership(resource.data.labId);
+
+      // Create report tetap ditutup pada Student Phase 1.
+      // Dibuka pada Student Reporting setelah validasi create lengkap.
+      allow create: if false;
+
+      allow update: if
+        validReportData(request.resource.data)
+        && hasActiveLabMembership(resource.data.labId)
+        && request.resource.data.reportNumber == resource.data.reportNumber
+        && request.resource.data.reporterId == resource.data.reporterId
+        && request.resource.data.labId == resource.data.labId
+        && request.resource.data.assetId == resource.data.assetId
+        && request.resource.data.category == resource.data.category
+        && request.resource.data.title == resource.data.title
+        && request.resource.data.description == resource.data.description
+        && request.resource.data.location == resource.data.location
+        && request.resource.data.severity == resource.data.severity
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (
+          (
+            resource.data.status in [
+              'open',
+              'acknowledged',
+              'in_progress'
+            ]
+            && request.resource.data.status == resource.data.status
+            && request.resource.data.assignedTo == resource.data.assignedTo
+            && request.resource.data.adminResponse == resource.data.adminResponse
+            && request.resource.data.acknowledgedAt == resource.data.acknowledgedAt
+            && request.resource.data.resolvedAt == resource.data.resolvedAt
+            && request.resource.data.closedAt == resource.data.closedAt
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'priority',
+              'updatedAt'
+            ])
+          )
+          ||
+          (
+            resource.data.status == 'open'
+            && request.resource.data.status == 'acknowledged'
+            && request.resource.data.assignedTo == request.auth.uid
+            && request.resource.data.adminResponse == resource.data.adminResponse
+            && request.resource.data.acknowledgedAt is timestamp
+            && request.resource.data.resolvedAt == null
+            && request.resource.data.closedAt == null
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'assignedTo',
+              'acknowledgedAt',
+              'updatedAt'
+            ])
+          )
+          ||
+          (
+            resource.data.status == 'acknowledged'
+            && resource.data.assignedTo == request.auth.uid
+            && request.resource.data.status == 'in_progress'
+            && request.resource.data.assignedTo == request.auth.uid
+            && request.resource.data.adminResponse == resource.data.adminResponse
+            && request.resource.data.acknowledgedAt == resource.data.acknowledgedAt
+            && request.resource.data.resolvedAt == null
+            && request.resource.data.closedAt == null
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'assignedTo',
+              'updatedAt'
+            ])
+          )
+          ||
+          (
+            resource.data.status == 'in_progress'
+            && resource.data.assignedTo == request.auth.uid
+            && request.resource.data.status == 'resolved'
+            && request.resource.data.assignedTo == request.auth.uid
+            && request.resource.data.adminResponse is string
+            && request.resource.data.adminResponse.size() > 0
+            && request.resource.data.acknowledgedAt == resource.data.acknowledgedAt
+            && request.resource.data.resolvedAt is timestamp
+            && request.resource.data.closedAt == null
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'assignedTo',
+              'adminResponse',
+              'resolvedAt',
+              'updatedAt'
+            ])
+          )
+          ||
+          (
+            resource.data.status in [
+              'acknowledged',
+              'in_progress'
+            ]
+            && resource.data.assignedTo == request.auth.uid
+            && request.resource.data.status == 'rejected'
+            && request.resource.data.assignedTo == request.auth.uid
+            && request.resource.data.adminResponse is string
+            && request.resource.data.adminResponse.size() > 0
+            && request.resource.data.acknowledgedAt == resource.data.acknowledgedAt
+            && request.resource.data.resolvedAt == null
+            && request.resource.data.closedAt is timestamp
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'assignedTo',
+              'adminResponse',
+              'closedAt',
+              'updatedAt'
+            ])
+          )
+          ||
+          (
+            resource.data.status == 'resolved'
+            && request.resource.data.status == 'closed'
+            && request.resource.data.assignedTo == resource.data.assignedTo
+            && request.resource.data.adminResponse == resource.data.adminResponse
+            && request.resource.data.acknowledgedAt == resource.data.acknowledgedAt
+            && request.resource.data.resolvedAt == resource.data.resolvedAt
+            && request.resource.data.closedAt is timestamp
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'closedAt',
+              'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if false;
+    }
+
+
+    // =========================================================
+    // MAINTENANCE RECORDS
+    // =========================================================
+
+    match /maintenance_records/{maintenanceId} {
+      allow get, list: if
+        isSuperadmin()
+        || hasActiveLabMembership(resource.data.labId);
+
+      allow create: if
+        validMaintenanceData(request.resource.data)
+        && hasActiveLabMembership(request.resource.data.labId)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.startedBy == null
+        && request.resource.data.startedAt == null
+        && request.resource.data.resolution == null
+        && request.resource.data.resolutionNote == null
+        && request.resource.data.completedBy == null
+        && request.resource.data.completedAt == null
+        && (
+          (
+            request.resource.data.sourceType == 'manual'
+            && request.resource.data.sourceId == null
+          )
+          ||
+          (
+            request.resource.data.sourceType == 'return'
+            && request.resource.data.sourceId is string
+            && getAfter(
+              /databases/$(database)/documents/borrowings/$(request.resource.data.sourceId)
+            ).data.status == 'returned'
+            && getAfter(
+              /databases/$(database)/documents/borrowings/$(request.resource.data.sourceId)
+            ).data.labId == request.resource.data.labId
+            && getAfter(
+              /databases/$(database)/documents/borrowings/$(request.resource.data.sourceId)
+            ).data.assetId == request.resource.data.assetId
+            && getAfter(
+              /databases/$(database)/documents/borrowings/$(request.resource.data.sourceId)
+            ).data.returnCondition == request.resource.data.condition
+          )
+          ||
+          (
+            request.resource.data.sourceType == 'report'
+            && request.resource.data.sourceId is string
+            && get(
+              /databases/$(database)/documents/reports/$(request.resource.data.sourceId)
+            ).data.labId == request.resource.data.labId
+            && get(
+              /databases/$(database)/documents/reports/$(request.resource.data.sourceId)
+            ).data.assetId == request.resource.data.assetId
+            && get(
+              /databases/$(database)/documents/reports/$(request.resource.data.sourceId)
+            ).data.status in [
+              'acknowledged',
+              'in_progress',
+              'resolved'
+            ]
+          )
+        );
+
+      allow update: if
+        validMaintenanceData(request.resource.data)
+        && hasActiveLabMembership(resource.data.labId)
+        && request.resource.data.labId == resource.data.labId
+        && request.resource.data.assetId == resource.data.assetId
+        && request.resource.data.assetCode == resource.data.assetCode
+        && request.resource.data.assetName == resource.data.assetName
+        && request.resource.data.quantity == resource.data.quantity
+        && request.resource.data.condition == resource.data.condition
+        && request.resource.data.description == resource.data.description
+        && request.resource.data.sourceType == resource.data.sourceType
+        && request.resource.data.sourceId == resource.data.sourceId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (
+          (
+            resource.data.status == 'pending'
+            && request.resource.data.status == 'in_progress'
+            && resource.data.startedBy == null
+            && resource.data.startedAt == null
+            && request.resource.data.startedBy == request.auth.uid
+            && request.resource.data.startedAt is timestamp
+            && request.resource.data.resolution == null
+            && request.resource.data.resolutionNote == null
+            && request.resource.data.completedBy == null
+            && request.resource.data.completedAt == null
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'startedBy',
+              'startedAt',
+              'updatedAt'
+            ])
+          )
+          ||
+          (
+            resource.data.status == 'in_progress'
+            && request.resource.data.status == 'completed'
+            && request.resource.data.startedBy == resource.data.startedBy
+            && request.resource.data.startedAt == resource.data.startedAt
+            && request.resource.data.resolution is string
+            && request.resource.data.resolution in [
+              'repaired',
+              'unrepairable'
+            ]
+            && (
+              request.resource.data.resolutionNote == null
+              || request.resource.data.resolutionNote is string
+            )
+            && request.resource.data.completedBy == request.auth.uid
+            && request.resource.data.completedAt is timestamp
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+              'status',
+              'resolution',
+              'resolutionNote',
+              'completedBy',
+              'completedAt',
+              'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if false;
+    }
+
+
+    // =========================================================
+    // ASSETS
+    // =========================================================
+
+    match /assets/{assetId} {
+      allow get, list: if
+        isSuperadmin()
+        || isStudent()
+        || hasActiveLabMembership(resource.data.labId);
+
+      allow create: if
+        validAssetData(request.resource.data)
+        && request.resource.data.stock >= 1
+        && request.resource.data.status == 'available'
+        && request.resource.data.qrValue == 'asset:' + assetId
+        && laboratoryIsActive(request.resource.data.labId)
+        && (
+          isSuperadmin()
+          || hasActiveLabMembership(request.resource.data.labId)
+        );
+
+      allow update: if
+        validAssetData(request.resource.data)
+        && request.resource.data.labId == resource.data.labId
+        && request.resource.data.qrValue == resource.data.qrValue
+        && request.resource.data.createdAt == resource.data.createdAt
+        && laboratoryExists(resource.data.labId)
+        && (
+          isSuperadmin()
+          || (
+            hasActiveLabMembership(resource.data.labId)
+            && laboratoryIsActive(resource.data.labId)
+          )
+        );
+
+      // Superadmin dapat hard-delete secara global.
+      // Lab Admin hanya dapat menghapus aset pada lab assignment aktif dan
+      // aset yang sedang Borrowed tetap tidak boleh dihapus.
+      // AssetService melakukan pemeriksaan tambahan terhadap riwayat borrowing.
+      allow delete: if
+        isSuperadmin()
+        || (
+          hasActiveLabMembership(resource.data.labId)
+          && laboratoryIsActive(resource.data.labId)
+          && resource.data.status != 'borrowed'
+        );
+    }
+
+
+    // =========================================================
+    // ACTIVITY LOGS
+    // =========================================================
+
+    match /activity_logs/{activityId} {
+      allow read:
+        if isSuperadmin();
+
+      allow create:
+        if isSuperadmin();
+
+      allow update, delete:
+        if false;
+    }
+
+
+    // =========================================================
+    // DEFAULT DENY
+    // =========================================================
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

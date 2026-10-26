@@ -10,8 +10,7 @@ class LabFlowConnectionErrorState extends StatelessWidget {
   const LabFlowConnectionErrorState({
     super.key,
     this.title = 'Data tidak dapat dimuat',
-    this.message =
-        'LabFlow mengalami kendala saat mengambil data. Periksa koneksi Anda lalu coba lagi.',
+    this.message = 'LabFlow mengalami kendala saat mengambil data. Periksa koneksi Anda lalu coba lagi.',
     this.retryLabel = 'Coba Lagi',
     this.onRetry,
   });
@@ -25,10 +24,7 @@ class LabFlowConnectionErrorState extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 32,
-          vertical: 40,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 40),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -74,20 +70,13 @@ class LabFlowConnectionErrorState extends StatelessWidget {
                   style: FilledButton.styleFrom(
                     backgroundColor: const Color(0xFF111111),
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                    ),
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
                     shape: const StadiumBorder(),
                   ),
-                  icon: const Icon(
-                    Icons.refresh_rounded,
-                    size: 20,
-                  ),
+                  icon: const Icon(Icons.refresh_rounded, size: 20),
                   label: Text(
                     retryLabel,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                 ),
               ),

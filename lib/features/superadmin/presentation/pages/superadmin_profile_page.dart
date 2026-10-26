@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../shared/presentation/dialogs/labflow_confirmation_dialog.dart';
@@ -8,32 +9,31 @@ import '../../../../shared/presentation/states/labflow_loading_state.dart';
 import '../../../../shared/presentation/states/labflow_suspended_account_state.dart';
 import '../../../auth/data/auth_service.dart';
 import '../../../auth/domain/user_profile.dart';
+import '../cubit/superadmin_profile_cubit.dart';
 import '../widgets/superadmin_bottom_navigation.dart';
 
-class SuperadminProfilePage extends StatefulWidget {
+class SuperadminProfilePage extends StatelessWidget {
   const SuperadminProfilePage({super.key});
 
   @override
-  State<SuperadminProfilePage> createState() => _SuperadminProfilePageState();
+  Widget build(BuildContext context) => RepositoryProvider<AuthService>(
+    create: (_) => AuthService(),
+    child: BlocProvider(
+      create: (context) =>
+          SuperadminProfileCubit(context.read<AuthService>())..load(),
+      child: const _SuperadminProfileView(),
+    ),
+  );
 }
 
-class _SuperadminProfilePageState extends State<SuperadminProfilePage> {
-  final AuthService _authService = AuthService();
-
-  late Future<UserProfile> _profileFuture;
+class _SuperadminProfileView extends StatefulWidget {
+  const _SuperadminProfileView();
 
   @override
-  void initState() {
-    super.initState();
-    _profileFuture = _authService.getCurrentUserProfile();
-  }
+  State<_SuperadminProfileView> createState() => _SuperadminProfilePageState();
+}
 
-  void _reloadProfile() {
-    setState(() {
-      _profileFuture = _authService.getCurrentUserProfile();
-    });
-  }
-
+class _SuperadminProfilePageState extends State<_SuperadminProfileView> {
   Future<void> _logout() async {
     final confirmed = await showLogoutConfirmationDialog(context: context);
 
@@ -41,7 +41,7 @@ class _SuperadminProfilePageState extends State<SuperadminProfilePage> {
       return;
     }
 
-    await _authService.signOut();
+    await context.read<AuthService>().signOut();
 
     if (!mounted) {
       return;
@@ -52,72 +52,42 @@ class _SuperadminProfilePageState extends State<SuperadminProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F9EF),
-      body: SafeArea(
-        bottom: false,
-        child: FutureBuilder<UserProfile>(
-          future: _profileFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const LabFlowLoadingState(
-                title: 'Memuat profile',
-                message: 'Mengambil informasi akun Superadmin.',
-              );
-            }
-
-            if (snapshot.hasError) {
-              final error = snapshot.error;
-
-              if (error is AuthServiceException && error.isAccountSuspended) {
-                return LabFlowSuspendedAccountState(
-                  onAction: () {
-                    context.go('/login');
-                  },
-                );
-              }
-
-              return LabFlowConnectionErrorState(
-                title: 'Profile tidak dapat dimuat',
-                message:
-                    'Informasi akun tidak dapat diambil saat ini. '
-                    'Periksa koneksi Anda lalu coba lagi.',
-                onRetry: _reloadProfile,
-              );
-            }
-
-            final profile = snapshot.data;
-
-            if (profile == null) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Text(
-                    'Profil Superadmin tidak ditemukan.',
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              );
-            }
-
-            if (!profile.isSuperadmin) {
-              return LabFlowAccessDeniedState(
+    return BlocBuilder<SuperadminProfileCubit, SuperadminProfileState>(
+      builder: (context, state) => Scaffold(
+        backgroundColor: const Color(0xFFF6F9EF),
+        body: SafeArea(
+          bottom: false,
+          child: switch (state) {
+            SuperadminProfileLoading() => const LabFlowLoadingState(
+              title: 'Memuat profile',
+              message: 'Mengambil informasi akun Superadmin.',
+            ),
+            SuperadminProfileFailure(:final isSuspended) when isSuspended =>
+              LabFlowSuspendedAccountState(
+                onAction: () => context.go('/login'),
+              ),
+            SuperadminProfileFailure() => LabFlowConnectionErrorState(
+              title: 'Profile tidak dapat dimuat',
+              message:
+                  'Informasi akun tidak dapat diambil saat ini. '
+                  'Periksa koneksi Anda lalu coba lagi.',
+              onRetry: context.read<SuperadminProfileCubit>().load,
+            ),
+            SuperadminProfileLoaded(:final profile)
+                when !profile.isSuperadmin =>
+              LabFlowAccessDeniedState(
                 title: 'Akses Superadmin ditolak',
                 message:
                     'Akun ini tidak memiliki role Superadmin sehingga '
                     'tidak dapat mengakses halaman Profile Superadmin.',
                 actionLabel: 'Ke Halaman Saya',
-                onAction: () {
-                  _goToOwnHome(profile);
-                },
-              );
-            }
-
-            return _buildContent(profile);
+                onAction: () => _goToOwnHome(profile),
+              ),
+            SuperadminProfileLoaded(:final profile) => _buildContent(profile),
           },
         ),
+        bottomNavigationBar: const SuperadminBottomNavigation(currentIndex: 4),
       ),
-      bottomNavigationBar: const SuperadminBottomNavigation(currentIndex: 4),
     );
   }
 
@@ -136,7 +106,7 @@ class _SuperadminProfilePageState extends State<SuperadminProfilePage> {
         return;
 
       default:
-        await _authService.signOut();
+        await context.read<AuthService>().signOut();
 
         if (!mounted) {
           return;

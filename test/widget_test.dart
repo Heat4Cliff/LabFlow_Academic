@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:labflow/app/app.dart';
 
@@ -15,9 +14,7 @@ void main() {
       tester.view.resetDevicePixelRatio();
     });
 
-    await tester.pumpWidget(
-      const ProviderScope(child: LabFlowApp(initialLocation: '/onboarding')),
-    );
+    await tester.pumpWidget(const LabFlowApp(initialLocation: '/onboarding'));
 
     await tester.pumpAndSettle();
 
