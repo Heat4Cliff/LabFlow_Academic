@@ -10,6 +10,8 @@ import '../../domain/lab_report.dart';
 import '../cubit/report_detail_cubit.dart';
 import '../cubit/report_detail_state.dart';
 import '../widgets/report_conversation_panel.dart';
+import '../widgets/report_detail_widgets.dart';
+import '../widgets/report_priority_control.dart';
 
 class AdminReportDetailPage extends StatelessWidget {
   const AdminReportDetailPage({required this.reportId, super.key});
@@ -122,20 +124,20 @@ class _AdminReportDetailView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            _hero(report),
+            AdminReportHero(report: report),
             const SizedBox(height: 14),
             Row(
               children: [
                 Expanded(
-                  child: _smallCard(
+                  child: ReportDetailSmallCard(
                     label: 'Priority',
-                    value: _priorityLabel(report.priority),
+                    value: reportPriorityLabel(report.priority),
                     icon: Icons.flag_outlined,
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _smallCard(
+                  child: ReportDetailSmallCard(
                     label: 'Severity',
                     value: report.severity == 'urgent' ? 'Urgent' : 'Normal',
                     icon: Icons.warning_amber_rounded,
@@ -144,26 +146,26 @@ class _AdminReportDetailView extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 12),
-            _informationCard(
+            ReportDetailInfoCard(
               icon: Icons.place_outlined,
               label: 'Lokasi',
               value: report.location,
             ),
             const SizedBox(height: 12),
-            _informationCard(
+            ReportDetailInfoCard(
               icon: Icons.description_outlined,
               label: 'Deskripsi',
               value: report.description,
             ),
             const SizedBox(height: 12),
-            _informationCard(
+            ReportDetailInfoCard(
               icon: Icons.person_outline_rounded,
               label: 'Pelapor',
               value: report.reporterId,
             ),
             if (report.assetId != null) ...[
               const SizedBox(height: 12),
-              _informationCard(
+              ReportDetailInfoCard(
                 icon: Icons.inventory_2_outlined,
                 label: 'Asset ID',
                 value: report.assetId!,
@@ -171,17 +173,17 @@ class _AdminReportDetailView extends StatelessWidget {
             ],
             if (report.adminResponse != null) ...[
               const SizedBox(height: 12),
-              _informationCard(
+              ReportDetailInfoCard(
                 icon: Icons.chat_bubble_outline_rounded,
                 label: 'Tanggapan Lab Admin',
                 value: report.adminResponse!,
               ),
             ],
             const SizedBox(height: 18),
-            _timeline(report),
+            AdminReportTimeline(report: report),
             const SizedBox(height: 22),
             if (!report.isResolved && !report.isRejected && !report.isClosed)
-              _priorityControl(context, state, report),
+              ReportPriorityControl(state: state, report: report),
             if (!report.isResolved && !report.isRejected && !report.isClosed)
               const SizedBox(height: 16),
             if (report.isAssetRelated &&
@@ -194,119 +196,6 @@ class _AdminReportDetailView extends StatelessWidget {
             _actionArea(context, state, report),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _hero(LabReport report) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: const Color(0xFF111111),
-        borderRadius: BorderRadius.circular(24),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: const BoxDecoration(
-              color: Color(0xFFB9F33D),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(
-              Icons.report_problem_outlined,
-              color: Color(0xFF111111),
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  report.reportNumber,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFFB8BCB3),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  report.title,
-                  style: const TextStyle(
-                    fontSize: 17,
-                    height: 1.25,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  _categoryLabel(report.category),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFFB8BCB3),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _priorityControl(
-    BuildContext context,
-    ReportDetailState state,
-    LabReport report,
-  ) {
-    const priorities = <String>['low', 'medium', 'high', 'critical'];
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFDDE2D5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Priority Penanganan',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: priorities
-                .map((priority) {
-                  return ChoiceChip(
-                    label: Text(_priorityLabel(priority)),
-                    selected: report.priority == priority,
-                    onSelected: state.isProcessing
-                        ? null
-                        : (_) {
-                            context.read<ReportDetailCubit>().setPriority(
-                              priority,
-                            );
-                          },
-                    selectedColor: const Color(0xFFB9F33D),
-                    backgroundColor: const Color(0xFFF6F9EF),
-                    showCheckmark: false,
-                    side: const BorderSide(color: Color(0xFFDDE2D5)),
-                    labelStyle: const TextStyle(fontWeight: FontWeight.w700),
-                  );
-                })
-                .toList(growable: false),
-          ),
-        ],
       ),
     );
   }
@@ -559,182 +448,6 @@ class _AdminReportDetailView extends StatelessWidget {
       },
     );
   }
-
-  Widget _timeline(LabReport report) {
-    // Gunakan timestamp event yang benar-benar tersimpan di Firestore.
-    // updatedAt tidak dipakai sebagai timestamp lifecycle karena field itu
-    // juga berubah saat priority atau data operasional lain diperbarui.
-    final items = <_TimelineEntry>[
-      _TimelineEntry('Laporan dibuat', report.createdAt),
-      if (report.acknowledgedAt != null)
-        _TimelineEntry('Laporan diterima Lab Admin', report.acknowledgedAt!),
-      if (report.resolvedAt != null)
-        _TimelineEntry('Masalah dinyatakan selesai', report.resolvedAt!),
-      if (report.closedAt != null)
-        _TimelineEntry(
-          report.isRejected ? 'Laporan ditolak' : 'Laporan ditutup',
-          report.closedAt!,
-        ),
-    ]..sort((a, b) => a.date.compareTo(b.date));
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFDDE2D5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Riwayat Status',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-          ),
-          const SizedBox(height: 12),
-          ...items.asMap().entries.map((entry) {
-            final item = entry.value;
-            final last = entry.key == items.length - 1;
-
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Column(
-                  children: [
-                    Container(
-                      width: 10,
-                      height: 10,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFB9F33D),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    if (!last)
-                      Container(
-                        width: 2,
-                        height: 38,
-                        color: const Color(0xFFDDE2D5),
-                      ),
-                  ],
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(bottom: last ? 0 : 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          item.label,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          _formatDateTime(item.date),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: Color(0xFF7A8190),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _smallCard({
-    required String label,
-    required String value,
-    required IconData icon,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(15),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFDDE2D5)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20, color: const Color(0xFF6B7280)),
-          const SizedBox(height: 12),
-          Text(
-            label,
-            style: const TextStyle(fontSize: 11, color: Color(0xFF7A8190)),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            value,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _informationCard({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFDDE2D5)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 20, color: const Color(0xFF6B7280)),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: Color(0xFF7A8190),
-                  ),
-                ),
-                const SizedBox(height: 5),
-                Text(
-                  value,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    height: 1.4,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TimelineEntry {
-  const _TimelineEntry(this.label, this.date);
-
-  final String label;
-  final DateTime date;
 }
 
 class _Palette {
@@ -777,64 +490,4 @@ String _statusLabel(String status) {
     default:
       return 'Menunggu Tanggapan';
   }
-}
-
-String _priorityLabel(String priority) {
-  switch (priority) {
-    case 'critical':
-      return 'Critical';
-    case 'high':
-      return 'High';
-    case 'low':
-      return 'Low';
-    case 'medium':
-    default:
-      return 'Medium';
-  }
-}
-
-String _categoryLabel(String category) {
-  switch (category) {
-    case 'asset_damage':
-      return 'Kerusakan Aset';
-    case 'asset_lost':
-      return 'Aset Hilang';
-    case 'network':
-      return 'Jaringan';
-    case 'computer':
-      return 'Komputer';
-    case 'software':
-      return 'Software';
-    case 'facility':
-      return 'Fasilitas';
-    case 'electricity':
-      return 'Kelistrikan';
-    case 'other':
-    default:
-      return 'Lainnya';
-  }
-}
-
-String _formatDateTime(DateTime value) {
-  const months = <String>[
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'Mei',
-    'Jun',
-    'Jul',
-    'Agu',
-    'Sep',
-    'Okt',
-    'Nov',
-    'Des',
-  ];
-
-  final day = value.day.toString().padLeft(2, '0');
-  final month = months[value.month - 1];
-  final hour = value.hour.toString().padLeft(2, '0');
-  final minute = value.minute.toString().padLeft(2, '0');
-
-  return '$day $month ${value.year} · $hour:$minute';
 }

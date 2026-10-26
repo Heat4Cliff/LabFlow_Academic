@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../shared/presentation/notifications/labflow_notification.dart';
 
@@ -16,6 +15,8 @@ import '../../domain/borrow_request.dart';
 import '../cubit/admin_borrow_request_detail_cubit.dart';
 
 import '../cubit/admin_borrow_request_detail_state.dart';
+import '../widgets/processed_borrow_request_panel.dart';
+import '../widgets/borrow_request_detail_cards.dart';
 
 class AdminBorrowRequestDetailPage extends StatelessWidget {
   const AdminBorrowRequestDetailPage({required this.requestId, super.key});
@@ -184,35 +185,31 @@ class _AdminBorrowRequestDetailView extends StatelessWidget {
 
             const SizedBox(height: 18),
 
-            _identityCard(request),
+            BorrowRequestIdentityCard(request: request),
 
             const SizedBox(height: 16),
 
-            _itemsCard(state),
+            BorrowRequestItemsCard(state: state),
 
             const SizedBox(height: 16),
 
             Row(
               children: [
                 Expanded(
-                  child: _dateCard(
-                    'Tanggal Pinjam',
-
-                    request.borrowDate,
-
-                    Icons.calendar_today_outlined,
+                  child: BorrowRequestDateCard(
+                    label: 'Tanggal Pinjam',
+                    date: request.borrowDate,
+                    icon: Icons.calendar_today_outlined,
                   ),
                 ),
 
                 const SizedBox(width: 12),
 
                 Expanded(
-                  child: _dateCard(
-                    'Tanggal Kembali',
-
-                    request.expectedReturnDate,
-
-                    Icons.event_available_outlined,
+                  child: BorrowRequestDateCard(
+                    label: 'Tanggal Kembali',
+                    date: request.expectedReturnDate,
+                    icon: Icons.event_available_outlined,
                   ),
                 ),
               ],
@@ -220,23 +217,21 @@ class _AdminBorrowRequestDetailView extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            _textCard(
-              'Tujuan Peminjaman',
-
-              request.purpose.isEmpty ? 'Tidak dicantumkan.' : request.purpose,
-
-              Icons.notes_rounded,
+            BorrowRequestTextCard(
+              title: 'Tujuan Peminjaman',
+              text: request.purpose.isEmpty
+                  ? 'Tidak dicantumkan.'
+                  : request.purpose,
+              icon: Icons.notes_rounded,
             ),
 
             if ((request.studentNote ?? '').trim().isNotEmpty) ...[
               const SizedBox(height: 12),
 
-              _textCard(
-                'Catatan Mahasiswa',
-
-                request.studentNote!.trim(),
-
-                Icons.chat_bubble_outline_rounded,
+              BorrowRequestTextCard(
+                title: 'Catatan Mahasiswa',
+                text: request.studentNote!.trim(),
+                icon: Icons.chat_bubble_outline_rounded,
               ),
             ],
 
@@ -244,12 +239,10 @@ class _AdminBorrowRequestDetailView extends StatelessWidget {
                 (request.rejectionReason ?? '').trim().isNotEmpty) ...[
               const SizedBox(height: 12),
 
-              _textCard(
-                'Alasan Penolakan',
-
-                request.rejectionReason!.trim(),
-
-                Icons.block_outlined,
+              BorrowRequestTextCard(
+                title: 'Alasan Penolakan',
+                text: request.rejectionReason!.trim(),
+                icon: Icons.block_outlined,
               ),
             ],
 
@@ -294,7 +287,7 @@ class _AdminBorrowRequestDetailView extends StatelessWidget {
             if (request.isPending)
               _pendingActions(context, state.isProcessing)
             else
-              _processedState(context, request),
+              ProcessedBorrowRequestPanel(request: request),
           ],
         ),
       ),
@@ -370,7 +363,7 @@ class _AdminBorrowRequestDetailView extends StatelessWidget {
   Future<void> _showRejectDialog(BuildContext context) async {
     final reason = await showDialog<String>(
       context: context,
-      builder: (_) => const _RejectBorrowRequestDialog(),
+      builder: (_) => const RejectBorrowRequestDialog(),
     );
 
     if (reason == null || !context.mounted) {
@@ -378,638 +371,6 @@ class _AdminBorrowRequestDetailView extends StatelessWidget {
     }
 
     await context.read<AdminBorrowRequestDetailCubit>().reject(reason);
-  }
-
-  Widget _processedState(BuildContext context, BorrowRequest request) {
-    if (request.status == 'approved') {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFDDE2D5)),
-        ),
-        child: Column(
-          children: [
-            const Text(
-              'Permintaan telah disetujui. Pilih aset aktual yang akan '
-              'dialokasikan sebelum mahasiswa melakukan pengambilan.',
-              textAlign: TextAlign.center,
-              style: TextStyle(height: 1.4, fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: FilledButton.icon(
-                onPressed: () async {
-                  final assigned = await context.push<bool>(
-                    '/lab-admin/borrowing/${request.id}/assign',
-                  );
-
-                  if (assigned != true || !context.mounted) {
-                    return;
-                  }
-
-                  await context.read<AdminBorrowRequestDetailCubit>().load(
-                    request.id,
-                  );
-
-                  if (!context.mounted) {
-                    return;
-                  }
-
-                  showLabFlowNotification(
-                    context: context,
-                    title: 'Penugasan berhasil',
-                    message: 'Aset sudah dialokasikan dan menunggu proses pengambilan.',
-                    type: LabFlowNotificationType.success,
-                  );
-                },
-                icon: const Icon(Icons.assignment_turned_in_outlined),
-                label: const Text(
-                  'Tugaskan Aset',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF111111),
-                  foregroundColor: Colors.white,
-                  shape: const StadiumBorder(),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (request.status == 'waiting_pickup') {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEAFBCB),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Column(
-          children: [
-            const Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.inventory_outlined, size: 22),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Aset sudah ditugaskan. Verifikasi mahasiswa dan barang '
-                    'sebelum peminjaman diaktifkan.',
-                    style: TextStyle(height: 1.4, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: FilledButton.icon(
-                onPressed: () async {
-                  final verified = await context.push<bool>(
-                    '/lab-admin/borrowing/${request.id}/pickup',
-                  );
-
-                  if (verified != true || !context.mounted) {
-                    return;
-                  }
-
-                  await context.read<AdminBorrowRequestDetailCubit>().load(
-                    request.id,
-                  );
-
-                  if (!context.mounted) {
-                    return;
-                  }
-
-                  showLabFlowNotification(
-                    context: context,
-                    title: 'Pengambilan terverifikasi',
-                    message:
-                        'Aset telah diserahkan dan peminjaman sekarang aktif.',
-                    type: LabFlowNotificationType.success,
-                  );
-                },
-                icon: const Icon(Icons.verified_outlined),
-                label: const Text(
-                  'Verifikasi Pengambilan',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF111111),
-                  foregroundColor: Colors.white,
-                  shape: const StadiumBorder(),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (request.status == 'active') {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFDFF5E8),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: Column(
-          children: [
-            const Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.check_circle_outline_rounded,
-                  size: 22,
-                  color: Color(0xFF188A55),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Peminjaman aktif. Saat barang dikembalikan, lanjutkan '
-                    'proses penerimaan dan pemeriksaan kondisi.',
-                    style: TextStyle(
-                      height: 1.4,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFF145C3E),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: FilledButton.icon(
-                onPressed: () async {
-                  final returned = await context.push<bool>(
-                    '/lab-admin/borrowing/${request.id}/return',
-                  );
-
-                  if (returned != true || !context.mounted) {
-                    return;
-                  }
-
-                  await context.read<AdminBorrowRequestDetailCubit>().load(
-                    request.id,
-                  );
-
-                  if (!context.mounted) {
-                    return;
-                  }
-
-                  showLabFlowNotification(
-                    context: context,
-                    title: 'Pengembalian selesai',
-                    message:
-                        'Barang telah diterima dan kondisi aset sudah dicatat.',
-                    type: LabFlowNotificationType.success,
-                  );
-                },
-                icon: const Icon(Icons.keyboard_return_rounded),
-                label: const Text(
-                  'Proses Pengembalian',
-                  style: TextStyle(fontWeight: FontWeight.w800),
-                ),
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF111111),
-                  foregroundColor: Colors.white,
-                  shape: const StadiumBorder(),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    if (request.status == 'returned') {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: const Color(0xFFEAFBCB),
-          borderRadius: BorderRadius.circular(18),
-        ),
-        child: const Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.task_alt_rounded, size: 22, color: Color(0xFF4D7014)),
-            SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Peminjaman selesai. Barang telah dikembalikan dan hasil '
-                'pemeriksaan kondisi sudah tersimpan.',
-                style: TextStyle(
-                  height: 1.4,
-                  fontWeight: FontWeight.w700,
-                  color: Color(0xFF39560E),
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: const Color(0xFFDDE2D5)),
-      ),
-      child: Text(
-        request.isRejected
-            ? 'Permintaan telah ditolak.'
-            : 'Permintaan ini tidak lagi menunggu persetujuan.',
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontWeight: FontWeight.w700),
-      ),
-    );
-  }
-
-  Widget _identityCard(BorrowRequest request) {
-    return Container(
-      width: double.infinity,
-
-      padding: const EdgeInsets.all(16),
-
-      decoration: BoxDecoration(
-        color: Colors.white,
-
-        borderRadius: BorderRadius.circular(20),
-
-        border: Border.all(color: const Color(0xFFDDE2D5)),
-      ),
-
-      child: Row(
-        children: [
-          Container(
-            width: 48,
-
-            height: 48,
-
-            decoration: const BoxDecoration(
-              color: Color(0xFFEAFBCB),
-
-              shape: BoxShape.circle,
-            ),
-
-            child: const Icon(Icons.person_outline_rounded),
-          ),
-
-          const SizedBox(width: 14),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-
-              children: [
-                const Text(
-                  'Peminjam',
-
-                  style: TextStyle(fontSize: 12, color: Color(0xFF7A8190)),
-                ),
-
-                const SizedBox(height: 4),
-
-                Text(
-                  request.studentId,
-
-                  maxLines: 1,
-
-                  overflow: TextOverflow.ellipsis,
-
-                  style: const TextStyle(
-                    fontSize: 16,
-
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-
-                const SizedBox(height: 3),
-
-                Text(
-                  request.requestNumber,
-
-                  style: const TextStyle(
-                    fontSize: 12,
-
-                    color: Color(0xFF7A8190),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _itemsCard(AdminBorrowRequestDetailState state) {
-    return Container(
-      width: double.infinity,
-
-      padding: const EdgeInsets.all(16),
-
-      decoration: BoxDecoration(
-        color: Colors.white,
-
-        borderRadius: BorderRadius.circular(22),
-
-        border: Border.all(color: const Color(0xFFDDE2D5)),
-      ),
-
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-
-        children: [
-          const Text(
-            'Aset yang Diminta',
-
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
-          ),
-
-          const SizedBox(height: 14),
-
-          if (state.itemsLoading)
-            const Row(
-              children: [
-                SizedBox(
-                  width: 18,
-
-                  height: 18,
-
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-
-                SizedBox(width: 10),
-
-                Text('Memuat detail item...'),
-              ],
-            )
-          else if (state.itemsError.isNotEmpty)
-            Text(
-              state.itemsError,
-
-              style: const TextStyle(color: Color(0xFFBD3232)),
-            )
-          else if (state.items.isEmpty)
-            const Text(
-              'Detail item belum tersedia.',
-
-              style: TextStyle(color: Color(0xFF7A8190)),
-            )
-          else
-            for (var index = 0; index < state.items.length; index++) ...[
-              if (index > 0)
-                const Divider(height: 22, color: Color(0xFFE2E6DC)),
-
-              Row(
-                children: [
-                  Container(
-                    width: 54,
-
-                    height: 54,
-
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFEAFBCB),
-
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-
-                    child: const Icon(Icons.inventory_2_outlined),
-                  ),
-
-                  const SizedBox(width: 14),
-
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-
-                      children: [
-                        Text(
-                          state.items[index].itemName,
-
-                          style: const TextStyle(fontWeight: FontWeight.w800),
-                        ),
-
-                        const SizedBox(height: 4),
-
-                        Text(
-                          'Jumlah ${state.items[index].quantity}'
-                          '${state.items[index].requestedAssetId == null ? '' : ' · Aset ${state.items[index].requestedAssetId}'}',
-
-                          maxLines: 2,
-
-                          overflow: TextOverflow.ellipsis,
-
-                          style: const TextStyle(
-                            fontSize: 12,
-
-                            color: Color(0xFF7A8190),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-        ],
-      ),
-    );
-  }
-
-  Widget _dateCard(String label, DateTime date, IconData icon) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-
-      decoration: BoxDecoration(
-        color: Colors.white,
-
-        borderRadius: BorderRadius.circular(18),
-
-        border: Border.all(color: const Color(0xFFDDE2D5)),
-      ),
-
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-
-        children: [
-          Icon(icon, size: 20, color: const Color(0xFF5F6672)),
-
-          const SizedBox(height: 10),
-
-          Text(
-            label,
-
-            style: const TextStyle(fontSize: 11, color: Color(0xFF7A8190)),
-          ),
-
-          const SizedBox(height: 3),
-
-          Text(
-            _formatDate(date),
-
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _textCard(String title, String text, IconData icon) {
-    return Container(
-      width: double.infinity,
-
-      padding: const EdgeInsets.all(16),
-
-      decoration: BoxDecoration(
-        color: Colors.white,
-
-        borderRadius: BorderRadius.circular(20),
-
-        border: Border.all(color: const Color(0xFFDDE2D5)),
-      ),
-
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-
-        children: [
-          Icon(icon, size: 20, color: const Color(0xFF5F6672)),
-
-          const SizedBox(width: 12),
-
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-
-              children: [
-                Text(
-                  title,
-
-                  style: const TextStyle(
-                    fontSize: 12,
-
-                    color: Color(0xFF7A8190),
-                  ),
-                ),
-
-                const SizedBox(height: 5),
-
-                Text(
-                  text,
-
-                  style: const TextStyle(
-                    height: 1.4,
-
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _RejectBorrowRequestDialog extends StatefulWidget {
-  const _RejectBorrowRequestDialog();
-
-  @override
-  State<_RejectBorrowRequestDialog> createState() =>
-      _RejectBorrowRequestDialogState();
-}
-
-class _RejectBorrowRequestDialogState
-    extends State<_RejectBorrowRequestDialog> {
-  final TextEditingController _reasonController = TextEditingController();
-
-  String? _errorText;
-
-  @override
-  void dispose() {
-    // Controller dimiliki oleh dialog sehingga baru dibuang setelah route
-    // dialog benar-benar selesai keluar dari widget tree.
-    _reasonController.dispose();
-    super.dispose();
-  }
-
-  void _submit() {
-    final reason = _reasonController.text.trim();
-
-    if (reason.isEmpty) {
-      setState(() {
-        _errorText = 'Alasan penolakan wajib diisi.';
-      });
-      return;
-    }
-
-    Navigator.of(context).pop(reason);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      backgroundColor: const Color(0xFFF6F9EF),
-      title: const Text(
-        'Tolak permintaan?',
-        style: TextStyle(fontWeight: FontWeight.w800),
-      ),
-      content: TextField(
-        controller: _reasonController,
-        autofocus: true,
-        maxLines: 4,
-        textInputAction: TextInputAction.newline,
-        onChanged: (_) {
-          if (_errorText == null) {
-            return;
-          }
-
-          setState(() {
-            _errorText = null;
-          });
-        },
-        decoration: InputDecoration(
-          labelText: 'Alasan penolakan',
-          hintText: 'Contoh: jadwal penggunaan bentrok dengan praktikum...',
-          errorText: _errorText,
-          filled: true,
-          fillColor: Colors.white,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Batal'),
-        ),
-        FilledButton(
-          onPressed: _submit,
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFFBD3232),
-            foregroundColor: Colors.white,
-          ),
-          child: const Text('Tolak'),
-        ),
-      ],
-    );
   }
 }
 
@@ -1075,38 +436,4 @@ String _statusLabel(String status) {
     default:
       return status;
   }
-}
-
-String _formatDate(DateTime date) {
-  const months = [
-    'Jan',
-
-    'Feb',
-
-    'Mar',
-
-    'Apr',
-
-    'Mei',
-
-    'Jun',
-
-    'Jul',
-
-    'Agu',
-
-    'Sep',
-
-    'Okt',
-
-    'Nov',
-
-    'Des',
-  ];
-
-  if (date.millisecondsSinceEpoch == 0) {
-    return '-';
-  }
-
-  return '${date.day} ${months[date.month - 1]} ${date.year}';
 }
