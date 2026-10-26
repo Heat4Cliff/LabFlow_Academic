@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../../shared/data/student_notification_writer.dart';
 import '../domain/pickup_borrowing.dart';
 import '../domain/return_inspection.dart';
 
@@ -392,6 +393,8 @@ class ReturnVerificationService {
           'updatedAt': FieldValue.serverTimestamp(),
         });
       });
+      await StudentNotificationWriter(_firestore)
+          .borrowing(cleanRequestId, 'borrow_returned');
     } on FirebaseException catch (error) {
       if (error.code == 'permission-denied') {
         throw const ReturnVerificationException(

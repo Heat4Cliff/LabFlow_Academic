@@ -190,6 +190,14 @@ class _StudentBorrowingView extends StatelessWidget {
               ),
             ),
           ],
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => context.push('/student/borrowing/${request.id}'),
+              icon: const Icon(Icons.chevron_right_rounded, size: 18),
+              label: const Text('Lihat detail'),
+            ),
+          ),
         ],
       ),
     );

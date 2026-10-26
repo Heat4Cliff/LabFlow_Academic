@@ -9,6 +9,7 @@ import '../../data/report_service.dart';
 import '../../domain/lab_report.dart';
 import '../cubit/report_detail_cubit.dart';
 import '../cubit/report_detail_state.dart';
+import '../widgets/report_conversation_panel.dart';
 
 class AdminReportDetailPage extends StatelessWidget {
   const AdminReportDetailPage({required this.reportId, super.key});
@@ -188,6 +189,8 @@ class _AdminReportDetailView extends StatelessWidget {
               _maintenanceButton(context, report),
               const SizedBox(height: 12),
             ],
+            ReportConversationPanel(reportId: report.id),
+            const SizedBox(height: 16),
             _actionArea(context, state, report),
           ],
         ),

@@ -26,6 +26,10 @@ import '../../features/splash/presentation/pages/splash_page.dart';
 import '../../features/student/presentation/pages/student_home_page.dart';
 import '../../features/student/presentation/pages/student_asset_detail_page.dart';
 import '../../features/student/presentation/pages/student_borrowing_page.dart';
+import '../../features/student/presentation/pages/student_borrowing_detail_page.dart';
+import '../../features/student/presentation/pages/student_report_create_page.dart';
+import '../../features/student/presentation/pages/student_report_detail_page.dart';
+import '../../features/student/presentation/pages/student_notification_page.dart';
 import '../../features/student/presentation/pages/student_borrow_request_page.dart';
 import '../../features/student/presentation/pages/student_equipment_page.dart';
 import '../../features/student/presentation/pages/student_profile_page.dart';
@@ -198,6 +202,15 @@ GoRouter createAppRouter({required String initialLocation}) {
         },
       ),
       GoRoute(
+        path: '/student/borrowing/:requestId',
+        builder: (context, state) => LabFlowAccountStatusGate(
+          requiredRole: 'student',
+          child: StudentBorrowingDetailPage(
+            requestId: state.pathParameters['requestId']!,
+          ),
+        ),
+      ),
+      GoRoute(
         path: '/student/borrowing/request',
         builder: (context, state) {
           final assetId = state.uri.queryParameters['assetId']?.trim() ?? '';
@@ -224,6 +237,22 @@ GoRouter createAppRouter({required String initialLocation}) {
         },
       ),
       GoRoute(
+        path: '/student/reports/create',
+        builder: (context, state) => const LabFlowAccountStatusGate(
+          requiredRole: 'student',
+          child: StudentReportCreatePage(),
+        ),
+      ),
+      GoRoute(
+        path: '/student/reports/:reportId',
+        builder: (context, state) => LabFlowAccountStatusGate(
+          requiredRole: 'student',
+          child: StudentReportDetailPage(
+            reportId: state.pathParameters['reportId']!,
+          ),
+        ),
+      ),
+      GoRoute(
         path: '/student/profile',
         builder: (context, state) {
           return const LabFlowAccountStatusGate(
@@ -231,6 +260,13 @@ GoRouter createAppRouter({required String initialLocation}) {
             child: StudentProfilePage(),
           );
         },
+      ),
+      GoRoute(
+        path: '/student/notifications',
+        builder: (context, state) => const LabFlowAccountStatusGate(
+          requiredRole: 'student',
+          child: StudentNotificationPage(),
+        ),
       ),
 
       /// Area Lab Admin.

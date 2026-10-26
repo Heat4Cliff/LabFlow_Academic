@@ -745,6 +745,7 @@ service cloud.firestore {
     match /borrowings/{borrowingId} {
       allow get, list: if
         isSuperadmin()
+        || (isStudent() && resource.data.studentId == request.auth.uid)
         || hasActiveLabMembership(resource.data.labId);
 
       allow create: if
@@ -865,9 +866,24 @@ service cloud.firestore {
         )
         || hasActiveLabMembership(resource.data.labId);
 
-      // Create report tetap ditutup pada Student Phase 1.
-      // Dibuka pada Student Reporting setelah validasi create lengkap.
-      allow create: if false;
+      allow create: if
+        isStudent()
+        && validReportData(request.resource.data)
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.status == 'open'
+        && request.resource.data.priority == 'medium'
+        && request.resource.data.assignedTo == null
+        && request.resource.data.adminResponse == null
+        && request.resource.data.acknowledgedAt == null
+        && request.resource.data.resolvedAt == null
+        && request.resource.data.closedAt == null
+        && laboratoryIsActive(request.resource.data.labId)
+        && (
+          request.resource.data.assetId == null
+          || get(
+            /databases/$(database)/documents/assets/$(request.resource.data.assetId)
+          ).data.labId == request.resource.data.labId
+        );
 
       allow update: if
         validReportData(request.resource.data)
@@ -989,6 +1005,111 @@ service cloud.firestore {
             ])
           )
         );
+
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        function reportParticipants() {
+          return isStudent()
+              && get(
+                /databases/$(database)/documents/reports/$(reportId)
+              ).data.reporterId == request.auth.uid
+            || hasActiveLabMembership(
+              get(
+                /databases/$(database)/documents/reports/$(reportId)
+              ).data.labId
+            );
+        }
+
+        allow get, list: if reportParticipants();
+
+        allow create: if
+          reportParticipants()
+          && request.resource.data.keys().hasAll([
+            'senderId', 'senderRole', 'text', 'createdAt', 'deletedAt'
+          ])
+          && request.resource.data.keys().hasOnly([
+            'senderId', 'senderRole', 'text', 'createdAt', 'deletedAt'
+          ])
+          && request.resource.data.senderId == request.auth.uid
+          && (
+            (isStudent() && request.resource.data.senderRole == 'student')
+            || (isLabAdmin() && request.resource.data.senderRole == 'lab_admin')
+          )
+          && request.resource.data.text is string
+          && request.resource.data.text.size() >= 1
+          && request.resource.data.text.size() <= 1000
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.deletedAt == null;
+
+        allow update: if
+          reportParticipants()
+          && resource.data.senderId == request.auth.uid
+          && resource.data.deletedAt == null
+          && request.resource.data.senderId == resource.data.senderId
+          && request.resource.data.senderRole == resource.data.senderRole
+          && request.resource.data.text == resource.data.text
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.deletedAt == request.time
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedAt']);
+
+        allow delete: if false;
+      }
+    }
+
+    match /notifications/{notificationId} {
+      allow get, list: if isStudent()
+        && resource.data.studentId == request.auth.uid;
+
+      allow create: if
+        isLabAdmin()
+        && request.resource.data.keys().hasAll([
+          'studentId', 'type', 'title', 'body', 'targetType', 'targetId',
+          'labId', 'read', 'createdAt'
+        ])
+        && request.resource.data.keys().hasOnly([
+          'studentId', 'type', 'title', 'body', 'targetType', 'targetId',
+          'labId', 'read', 'createdAt'
+        ])
+        && request.resource.data.studentId is string
+        && request.resource.data.title is string
+        && request.resource.data.body is string
+        && request.resource.data.body.size() <= 180
+        && request.resource.data.read == false
+        && request.resource.data.createdAt == request.time
+        && hasActiveLabMembership(request.resource.data.labId)
+        && (
+          (
+            request.resource.data.targetType == 'borrow_request'
+            && request.resource.data.type in [
+              'borrow_approved', 'borrow_rejected', 'borrow_waiting_pickup',
+              'borrow_active', 'borrow_returned'
+            ]
+            && get(
+              /databases/$(database)/documents/borrow_requests/$(request.resource.data.targetId)
+            ).data.studentId == request.resource.data.studentId
+            && get(
+              /databases/$(database)/documents/borrow_requests/$(request.resource.data.targetId)
+            ).data.labId == request.resource.data.labId
+          )
+          ||
+          (
+            request.resource.data.targetType == 'report'
+            && request.resource.data.type in ['report_update', 'report_message']
+            && get(
+              /databases/$(database)/documents/reports/$(request.resource.data.targetId)
+            ).data.reporterId == request.resource.data.studentId
+            && get(
+              /databases/$(database)/documents/reports/$(request.resource.data.targetId)
+            ).data.labId == request.resource.data.labId
+          )
+        );
+
+      allow update: if isStudent()
+        && resource.data.studentId == request.auth.uid
+        && request.resource.data.studentId == resource.data.studentId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+        && request.resource.data.read is bool;
 
       allow delete: if false;
     }

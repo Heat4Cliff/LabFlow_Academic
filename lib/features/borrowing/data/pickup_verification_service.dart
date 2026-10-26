@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../../shared/data/student_notification_writer.dart';
 import '../domain/pickup_borrowing.dart';
 
 class PickupVerificationService {
@@ -205,6 +206,8 @@ class PickupVerificationService {
           'updatedAt': FieldValue.serverTimestamp(),
         });
       });
+      await StudentNotificationWriter(_firestore)
+          .borrowing(cleanRequestId, 'borrow_active');
     } on FirebaseException catch (error) {
       if (error.code == 'permission-denied') {
         throw const PickupVerificationException(

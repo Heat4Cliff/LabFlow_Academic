@@ -117,6 +117,23 @@ class _StudentHomeView extends StatelessWidget {
                 ),
               ),
               InkWell(
+                onTap: () => context.go('/student/notifications'),
+                borderRadius: BorderRadius.circular(999),
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.notifications_none_rounded,
+                    color: studentInk,
+                  ),
+                ),
+              ),
+              InkWell(
                 onTap: () => context.go('/student/profile'),
                 borderRadius: BorderRadius.circular(999),
                 child: Container(
