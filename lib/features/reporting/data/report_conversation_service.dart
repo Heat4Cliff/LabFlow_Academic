@@ -46,7 +46,12 @@ class ReportConversationService {
     if (user == null) {
       throw const ReportConversationException('Sesi pengguna tidak ditemukan.');
     }
-    final profile = await _firestore.collection('users').doc(user.uid).get();
+    DocumentSnapshot<Map<String, dynamic>> profile;
+    try {
+      profile = await _firestore.collection('users').doc(user.uid).get();
+    } on FirebaseException catch (error) {
+      throw ReportConversationException(_firestoreMessage(error));
+    }
     final data = profile.data();
     final role = (data?['role'] as String? ?? '').trim();
     if (data?['status'] != 'active' ||
@@ -62,38 +67,50 @@ class ReportConversationService {
           'Upload gambar membutuhkan koneksi internet.',
         );
       }
-      upload = await _images.uploadImage(
-        image: image,
-        folder: 'labflow/reports/$reportId/chat',
-        maximumBytes: 5 * 1024 * 1024,
-      );
+      try {
+        upload = await _images.uploadImage(
+          image: image,
+          folder: 'labflow/reports/$reportId/chat',
+          maximumBytes: 5 * 1024 * 1024,
+        );
+      } on AssetImageException catch (error) {
+        throw ReportConversationException(error.message);
+      }
     }
     final messageType = upload == null
         ? 'text'
         : rawText.trim().isEmpty
         ? 'image'
         : 'mixed';
-    await _firestore
-        .collection('reports')
-        .doc(reportId)
-        .collection('messages')
-        .add({
-          'senderId': user.uid,
-          'senderRole': role,
-          'senderName': (data?['fullName'] as String? ?? '').trim(),
-          'text': rawText.trim(),
-          'type': messageType,
-          if (upload != null) 'imageUrl': upload.secureUrl,
-          if (upload?.publicId != null) 'imagePublicId': upload!.publicId,
-          'createdAt': FieldValue.serverTimestamp(),
-          'deletedAt': null,
-        });
+    try {
+      await _firestore
+          .collection('reports')
+          .doc(reportId)
+          .collection('messages')
+          .add({
+            'senderId': user.uid,
+            'senderRole': role,
+            'senderName': (data?['fullName'] as String? ?? '').trim(),
+            'text': rawText.trim(),
+            'type': messageType,
+            if (upload != null) 'imageUrl': upload.secureUrl,
+            if (upload?.publicId != null) 'imagePublicId': upload!.publicId,
+            'createdAt': FieldValue.serverTimestamp(),
+            'deletedAt': null,
+          });
+    } on FirebaseException catch (error) {
+      throw ReportConversationException(_firestoreMessage(error));
+    }
     if (role == 'lab_admin') {
-      await StudentNotificationWriter(_firestore).report(
-        reportId,
-        message: true,
-        imageOnly: image != null && rawText.trim().isEmpty,
-      );
+      try {
+        await StudentNotificationWriter(_firestore).report(
+          reportId,
+          message: true,
+          imageOnly: image != null && rawText.trim().isEmpty,
+        );
+      } on FirebaseException {
+        // Message creation is authoritative; notification delivery is auxiliary.
+      }
     }
   }
 
@@ -105,6 +122,14 @@ class ReportConversationService {
         .doc(messageId)
         .update({'deletedAt': FieldValue.serverTimestamp()});
   }
+
+  String _firestoreMessage(FirebaseException error) => switch (error.code) {
+    'permission-denied' =>
+      'Firestore menolak pesan. Periksa akses percakapan dan Rules aktif.',
+    'unavailable' || 'deadline-exceeded' =>
+      'Tidak dapat terhubung ke Firestore. Periksa koneksi.',
+    _ => 'Pesan gagal disimpan ke Firestore. Coba lagi.',
+  };
 }
 
 class ReportConversationException implements Exception {

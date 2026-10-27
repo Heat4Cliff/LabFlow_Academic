@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../shared/presentation/notifications/labflow_notification.dart';
 import '../../data/student_service.dart';
 import '../../domain/student_models.dart';
 import '../student_navigation.dart';
@@ -44,9 +45,13 @@ class _StudentBorrowingViewState extends State<_StudentBorrowingView> {
             ? state.actionMessage
             : state.errorMessage;
         if (message.isEmpty) return;
-        ScaffoldMessenger.of(context)
-          ..hideCurrentSnackBar()
-          ..showSnackBar(SnackBar(content: Text(message)));
+        showLabFlowNotification(
+          context: context,
+          message: message,
+          type: state.errorMessage.isNotEmpty
+              ? LabFlowNotificationType.error
+              : LabFlowNotificationType.success,
+        );
         context.read<StudentBorrowingCubit>().clearFeedback();
       },
       builder: (context, state) {

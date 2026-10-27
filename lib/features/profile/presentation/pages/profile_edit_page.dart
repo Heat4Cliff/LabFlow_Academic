@@ -5,17 +5,19 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../shared/presentation/notifications/labflow_notification.dart';
 import '../../data/profile_edit_service.dart';
 import '../cubit/profile_edit_cubit.dart';
 
 class ProfileEditPage extends StatelessWidget {
-  const ProfileEditPage({required this.returnPath, super.key});
+  const ProfileEditPage({required this.returnPath, this.editor, super.key});
 
   final String returnPath;
+  final ProfileEditor? editor;
 
   @override
   Widget build(BuildContext context) => BlocProvider(
-    create: (_) => ProfileEditCubit(ProfileEditService())..load(),
+    create: (_) => ProfileEditCubit(editor ?? ProfileEditService())..load(),
     child: _ProfileEditView(returnPath: returnPath),
   );
 }
@@ -32,6 +34,10 @@ class _ProfileEditView extends StatefulWidget {
 class _ProfileEditViewState extends State<_ProfileEditView> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _nimController = TextEditingController();
+  final TextEditingController _programController = TextEditingController();
+  final TextEditingController _nipController = TextEditingController();
+  final TextEditingController _nidnController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
   bool _initialized = false;
 
@@ -39,6 +45,10 @@ class _ProfileEditViewState extends State<_ProfileEditView> {
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _nimController.dispose();
+    _programController.dispose();
+    _nipController.dispose();
+    _nidnController.dispose();
     super.dispose();
   }
 
@@ -62,6 +72,18 @@ class _ProfileEditViewState extends State<_ProfileEditView> {
           _initialized = true;
           _nameController.text = state.profile!.fullName;
           _phoneController.text = state.profile!.phoneNumber ?? '';
+          _nimController.text = state.profile!.nim ?? '';
+          _programController.text = state.profile!.studyProgram ?? '';
+          _nipController.text = state.profile!.nip ?? '';
+          _nidnController.text = state.profile!.nidn ?? '';
+        }
+        if (state.status == ProfileEditStatus.failure &&
+            state.errorMessage.isNotEmpty) {
+          showLabFlowNotification(
+            context: context,
+            message: state.errorMessage,
+            type: LabFlowNotificationType.error,
+          );
         }
         if (state.status == ProfileEditStatus.success) {
           if (context.canPop()) {
@@ -146,15 +168,19 @@ class _ProfileEditViewState extends State<_ProfileEditView> {
                     ],
                   ),
                 ),
-                const Text(
-                  'Nama lengkap',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                const SizedBox(height: 20),
+                _fieldLabel('Nama Lengkap'),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _nameController,
+                  maxLength: 100,
+                  textCapitalization: TextCapitalization.words,
+                  enabled: state.status != ProfileEditStatus.saving,
+                  onChanged: context.read<ProfileEditCubit>().setFullName,
+                  decoration: _inputDecoration('Masukkan nama lengkap'),
                 ),
-                const SizedBox(height: 18),
-                const Text(
-                  'Nomor HP',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
-                ),
+                const SizedBox(height: 8),
+                _fieldLabel('Nomor HP'),
                 const SizedBox(height: 8),
                 TextField(
                   controller: _phoneController,
@@ -167,36 +193,58 @@ class _ProfileEditViewState extends State<_ProfileEditView> {
                   ),
                 ),
                 if (state.profile?.isStudent == true) ...[
-                  _readOnly('NIM', state.profile?.nim),
-                  _readOnly('Program Studi', state.profile?.studyProgram),
-                  _readOnly('Semester', state.profile?.semester?.toString()),
+                  _fieldLabel('NIM'),
+                  TextField(
+                    controller: _nimController,
+                    maxLength: 30,
+                    enabled: state.status != ProfileEditStatus.saving,
+                    onChanged: context.read<ProfileEditCubit>().setNim,
+                    decoration: _inputDecoration('Masukkan NIM'),
+                  ),
+                  _fieldLabel('Program Studi'),
+                  TextField(
+                    controller: _programController,
+                    maxLength: 100,
+                    textCapitalization: TextCapitalization.words,
+                    enabled: state.status != ProfileEditStatus.saving,
+                    onChanged: context.read<ProfileEditCubit>().setStudyProgram,
+                    decoration: _inputDecoration('Masukkan program studi'),
+                  ),
+                  _fieldLabel('Semester'),
+                  DropdownButtonFormField<int>(
+                    initialValue: state.semester,
+                    decoration: _inputDecoration('Pilih semester'),
+                    items: List.generate(14, (index) => index + 1)
+                        .map(
+                          (value) => DropdownMenuItem(
+                            value: value,
+                            child: Text('Semester $value'),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: state.status == ProfileEditStatus.saving
+                        ? null
+                        : context.read<ProfileEditCubit>().setSemester,
+                  ),
                 ],
                 if (state.profile?.isLabAdmin == true) ...[
-                  _readOnly('NIP', state.profile?.nip),
-                  _readOnly('NIDN', state.profile?.nidn),
-                ],
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _nameController,
-                  style: const TextStyle(fontSize: 17),
-                  maxLength: 100,
-                  textCapitalization: TextCapitalization.words,
-                  enabled: state.status != ProfileEditStatus.saving,
-                  onChanged: context.read<ProfileEditCubit>().setFullName,
-                  decoration: InputDecoration(
-                    hintText: 'Masukkan nama lengkap',
-                    hintStyle: const TextStyle(fontSize: 16),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 18,
-                    ),
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(16),
-                    ),
+                  _fieldLabel('NIP'),
+                  TextField(
+                    controller: _nipController,
+                    maxLength: 30,
+                    enabled: state.status != ProfileEditStatus.saving,
+                    onChanged: context.read<ProfileEditCubit>().setNip,
+                    decoration: _inputDecoration('Masukkan NIP'),
                   ),
-                ),
+                  _fieldLabel('NIDN'),
+                  TextField(
+                    controller: _nidnController,
+                    maxLength: 30,
+                    enabled: state.status != ProfileEditStatus.saving,
+                    onChanged: context.read<ProfileEditCubit>().setNidn,
+                    decoration: _inputDecoration('Masukkan NIDN'),
+                  ),
+                ],
                 if (state.errorMessage.isNotEmpty)
                   Text(
                     state.errorMessage,
@@ -267,31 +315,45 @@ class _ProfileEditViewState extends State<_ProfileEditView> {
       ),
     );
     if (source == null) return;
-    final photo = await _picker.pickImage(
-      source: source,
-      imageQuality: 82,
-      maxWidth: 512,
-      maxHeight: 512,
-      requestFullMetadata: false,
-    );
-    if (mounted && photo != null) {
-      context.read<ProfileEditCubit>().setPhoto(photo);
+    try {
+      final photo = await _picker.pickImage(
+        source: source,
+        imageQuality: 82,
+        maxWidth: 512,
+        maxHeight: 512,
+        requestFullMetadata: false,
+      );
+      if (mounted && photo != null) {
+        context.read<ProfileEditCubit>().setPhoto(photo);
+      }
+    } catch (_) {
+      if (mounted) {
+        showLabFlowNotification(
+          context: context,
+          message: 'Foto tidak dapat dipilih.',
+          type: LabFlowNotificationType.error,
+        );
+      }
     }
   }
 
-  Widget _readOnly(String label, String? value) => Padding(
-    padding: const EdgeInsets.only(top: 12),
-    child: ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(label),
-      subtitle: Text(value?.trim().isNotEmpty == true ? value! : 'Belum diisi'),
-    ),
+  Widget _fieldLabel(String value) => Padding(
+    padding: const EdgeInsets.only(top: 8, bottom: 8),
+    child: Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+  );
+
+  InputDecoration _inputDecoration(String hint) => InputDecoration(
+    hintText: hint,
+    filled: true,
+    fillColor: Colors.white,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
   );
 
   String _initials(String name) {
     final parts = name
         .trim()
-        .split(RegExp(r'\\s+'))
+        .split(RegExp(r'\s+'))
         .where((p) => p.isNotEmpty)
         .toList();
     if (parts.isEmpty) return '?';

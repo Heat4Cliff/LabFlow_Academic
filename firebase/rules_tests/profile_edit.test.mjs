@@ -75,6 +75,8 @@ test('report participants can create valid text, image, and mixed messages only'
   }));
   await assertSucceeds(message('mixed-1', { text: 'Caption', type: 'mixed' }));
   await assertFails(message('empty-1', { text: '', type: 'text', omitImage: true }));
+  await assertFails(message('image-no-url', { type: 'image', omitImage: true }));
+  await assertFails(message('long-text', { text: 'x'.repeat(1001), type: 'text', omitImage: true }));
   await assertFails(message('bad-type', { type: 'video' }));
   await assertFails(message('forged', { senderId: 'student-2' }));
   await assertFails(message('extra', { unsafeField: true }));
@@ -101,7 +103,7 @@ after(async () => {
   await environment?.cleanup();
 });
 
-test('student may change safe contact fields but not academic identity', async () => {
+test('student may edit own academic profile fields but not protected identity', async () => {
   await assertSucceeds(
     updateDoc(doc(student, 'users', 'student-1'), { fullName: 'Nama Baru' }),
   );
@@ -111,9 +113,16 @@ test('student may change safe contact fields but not academic identity', async (
   await assertSucceeds(updateDoc(doc(student, 'users', 'student-1'), { phoneNumber: '+62 812 1234' }));
   await assertSucceeds(updateDoc(doc(student, 'users', 'student-1'), { profilePhotoUrl: 'https://res.cloudinary.com/example/image/upload/avatar.jpg' }));
   await assertSucceeds(updateDoc(doc(student, 'users', 'student-1'), { profilePhotoUrl: null }));
-  await assertFails(updateDoc(doc(student, 'users', 'student-1'), { nim: 'ATTACK' }));
-  await assertFails(updateDoc(doc(student, 'users', 'student-1'), { studyProgram: 'Attack' }));
-  await assertFails(updateDoc(doc(student, 'users', 'student-1'), { semester: 2 }));
+  await assertSucceeds(updateDoc(doc(student, 'users', 'student-1'), { nim: '000123' }));
+  await assertSucceeds(updateDoc(doc(student, 'users', 'student-1'), { studyProgram: 'Informatika' }));
+  await assertSucceeds(updateDoc(doc(student, 'users', 'student-1'), { semester: 14 }));
+  await assertSucceeds(updateDoc(doc(student, 'users', 'student-1'), { semester: null }));
+  await assertFails(updateDoc(doc(student, 'users', 'student-1'), { semester: 15 }));
+  await assertFails(updateDoc(doc(student, 'users', 'student-1'), { nim: '   ' }));
+  await assertFails(updateDoc(doc(student, 'users', 'student-1'), { studyProgram: ' ' }));
+  await assertFails(updateDoc(doc(student, 'users', 'student-1'), { nip: 'ATTACK' }));
+  await assertFails(updateDoc(doc(student, 'users', 'student-1'), { nidn: 'ATTACK' }));
+  await assertFails(updateDoc(doc(student, 'users', 'student-1'), { email: 'attacker@example.invalid' }));
   await assertFails(
     updateDoc(doc(student, 'users', 'student-1'), { status: 'active-again' }),
   );
@@ -130,7 +139,7 @@ test('student may change safe contact fields but not academic identity', async (
   );
 });
 
-test('lab admin may change safe fields but cannot edit staff identity or membership', async () => {
+test('lab admin may edit own staff identity but not student identity or membership', async () => {
   await assertSucceeds(
     updateDoc(doc(labAdmin, 'users', 'lab-admin-1'), {
       fullName: 'Admin Lab Baru',
@@ -138,8 +147,14 @@ test('lab admin may change safe fields but cannot edit staff identity or members
   );
   await assertSucceeds(updateDoc(doc(labAdmin, 'users', 'lab-admin-1'), { phoneNumber: '+62 812' }));
   await assertSucceeds(updateDoc(doc(labAdmin, 'users', 'lab-admin-1'), { profilePhotoUrl: null }));
-  await assertFails(updateDoc(doc(labAdmin, 'users', 'lab-admin-1'), { nip: 'NEW-NIP' }));
-  await assertFails(updateDoc(doc(labAdmin, 'users', 'lab-admin-1'), { nidn: 'NEW-NIDN' }));
+  await assertSucceeds(updateDoc(doc(labAdmin, 'users', 'lab-admin-1'), { nip: '000123' }));
+  await assertSucceeds(updateDoc(doc(labAdmin, 'users', 'lab-admin-1'), { nidn: '001234' }));
+  await assertFails(updateDoc(doc(labAdmin, 'users', 'lab-admin-1'), { nim: 'ATTACK' }));
+  await assertFails(updateDoc(doc(labAdmin, 'users', 'lab-admin-1'), { semester: 2 }));
+  await assertFails(updateDoc(doc(labAdmin, 'users', 'lab-admin-1'), { studyProgram: 'Attack' }));
+  await assertFails(updateDoc(doc(labAdmin, 'users', 'lab-admin-1'), { email: 'attacker@example.invalid' }));
+  await assertFails(updateDoc(doc(labAdmin, 'users', 'lab-admin-1'), { role: 'student' }));
+  await assertFails(updateDoc(doc(labAdmin, 'users', 'lab-admin-1'), { status: 'disabled' }));
   await assertFails(
     updateDoc(doc(labAdmin, 'lab_memberships', 'lab-admin-1__lab-1'), {
       active: false,
@@ -159,5 +174,10 @@ test('superadmin retains administrative update permission', async () => {
   await assertSucceeds(updateDoc(doc(superadmin, 'users', 'lab-admin-1'), {
     nip: 'DEMO-001', nidn: 'DEMO-002',
   }));
+  await assertSucceeds(updateDoc(doc(superadmin, 'users', 'superadmin-1'), {
+    fullName: 'Superadmin Baru', phoneNumber: '+62 800',
+    profilePhotoUrl: 'https://res.cloudinary.com/example/image/upload/avatar.jpg',
+  }));
+  await assertFails(updateDoc(doc(superadmin, 'users', 'superadmin-1'), { nim: 'NO' }));
   assert.ok(environment);
 });

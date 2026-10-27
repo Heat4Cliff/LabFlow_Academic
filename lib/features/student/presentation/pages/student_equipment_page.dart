@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../shared/presentation/notifications/labflow_notification.dart';
 import '../../data/student_service.dart';
 import '../../domain/student_models.dart';
 import '../cubit/student_catalog_cubit.dart';
@@ -331,8 +332,10 @@ class _StudentEquipmentViewState extends State<_StudentEquipmentView> {
     }
     if (!context.mounted) return;
     if (found == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kode aset tidak ditemukan.')),
+      showLabFlowNotification(
+        context: context,
+        message: 'Kode aset tidak ditemukan.',
+        type: LabFlowNotificationType.info,
       );
       return;
     }

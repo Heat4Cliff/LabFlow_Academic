@@ -11,6 +11,11 @@ abstract class ProfileEditor {
   Future<UserProfile> saveProfile({
     required String fullName,
     required String phoneNumber,
+    required String nim,
+    required String studyProgram,
+    required int? semester,
+    required String nip,
+    required String nidn,
     XFile? photo,
     bool removePhoto = false,
   });
@@ -36,6 +41,36 @@ class ProfileEditService implements ProfileEditor {
   static String? validatePhoneNumber(String value) =>
       value.trim().length > 20 ? 'Nomor HP maksimal 20 karakter.' : null;
 
+  static String? validateRoleFields({
+    required UserProfile? profile,
+    required String nim,
+    required String studyProgram,
+    required int? semester,
+    required String nip,
+    required String nidn,
+  }) {
+    if (profile == null) return 'Profil tidak ditemukan.';
+    String? optionalText(String value, String label, int maximum) {
+      final clean = value.trim();
+      if (clean.isNotEmpty && clean.length > maximum) {
+        return '$label maksimal $maximum karakter.';
+      }
+      return null;
+    }
+
+    if (profile.isStudent) {
+      return optionalText(nim, 'NIM', 30) ??
+          optionalText(studyProgram, 'Program studi', 100) ??
+          (semester != null && (semester < 1 || semester > 14)
+              ? 'Semester harus antara 1 dan 14.'
+              : null);
+    }
+    if (profile.isLabAdmin) {
+      return optionalText(nip, 'NIP', 30) ?? optionalText(nidn, 'NIDN', 30);
+    }
+    return null;
+  }
+
   @override
   Future<UserProfile> load() => _authService.getCurrentUserProfile();
 
@@ -43,6 +78,11 @@ class ProfileEditService implements ProfileEditor {
   Future<UserProfile> saveProfile({
     required String fullName,
     required String phoneNumber,
+    required String nim,
+    required String studyProgram,
+    required int? semester,
+    required String nip,
+    required String nidn,
     XFile? photo,
     bool removePhoto = false,
   }) async {
@@ -50,6 +90,17 @@ class ProfileEditService implements ProfileEditor {
     if (error != null) throw ProfileEditException(error);
     final phoneError = validatePhoneNumber(phoneNumber);
     if (phoneError != null) throw ProfileEditException(phoneError);
+
+    final profile = await load();
+    final roleError = validateRoleFields(
+      profile: profile,
+      nim: nim,
+      studyProgram: studyProgram,
+      semester: semester,
+      nip: nip,
+      nidn: nidn,
+    );
+    if (roleError != null) throw ProfileEditException(roleError);
 
     final uid = _authService.currentUser?.uid;
     if (uid == null) {
@@ -61,6 +112,20 @@ class ProfileEditService implements ProfileEditor {
         'fullName': fullName.trim(),
         'phoneNumber': phoneNumber.trim().isEmpty ? null : phoneNumber.trim(),
       };
+      if (profile.isStudent) {
+        update.addAll({
+          'nim': nim.trim().isEmpty ? null : nim.trim(),
+          'studyProgram': studyProgram.trim().isEmpty
+              ? null
+              : studyProgram.trim(),
+          'semester': semester,
+        });
+      } else if (profile.isLabAdmin) {
+        update.addAll({
+          'nip': nip.trim().isEmpty ? null : nip.trim(),
+          'nidn': nidn.trim().isEmpty ? null : nidn.trim(),
+        });
+      }
       if (photo != null) {
         if (!await _connectivity.hasNetworkInterface()) {
           throw const ProfileEditException(
@@ -81,7 +146,15 @@ class ProfileEditService implements ProfileEditor {
       throw ProfileEditException(error.message);
     } on FirebaseException catch (exception) {
       if (exception.code == 'permission-denied') {
-        throw const ProfileEditException('Akses ubah profil ditolak.');
+        throw const ProfileEditException(
+          'Firestore menolak perubahan profil. Periksa Rules aktif dan hak edit akun.',
+        );
+      }
+      if (exception.code == 'unavailable' ||
+          exception.code == 'deadline-exceeded') {
+        throw const ProfileEditException(
+          'Tidak dapat terhubung ke Firestore. Periksa koneksi dan coba lagi.',
+        );
       }
       throw const ProfileEditException(
         'Profil tidak dapat disimpan. Periksa koneksi dan coba lagi.',

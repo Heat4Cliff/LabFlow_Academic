@@ -100,15 +100,15 @@ class AssetImageService {
           .send(request)
           .timeout(const Duration(seconds: 30));
     } on SocketException {
+      throw const AssetImageException('Tidak dapat terhubung ke Cloudinary.');
+    } on TimeoutException {
       throw const AssetImageException(
-        'Tidak dapat terhubung ke layanan upload gambar.',
+        'Upload melewati batas waktu. Coba lagi.',
       );
     } on HttpException {
       throw const AssetImageException('Upload gambar gagal diproses.');
     } catch (_) {
-      throw const AssetImageException(
-        'Terjadi kesalahan saat mengunggah gambar.',
-      );
+      throw const AssetImageException('Upload gambar gagal. Coba lagi.');
     }
 
     String responseBody;
@@ -130,14 +130,18 @@ class AssetImageService {
     }
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      final cloudinaryMessage = data?['error'] is Map<String, dynamic>
-          ? (data?['error'] as Map<String, dynamic>)['message'] as String?
-          : null;
-
+      if (response.statusCode == 413) {
+        throw const AssetImageException('Ukuran gambar melebihi batas.');
+      }
+      if (response.statusCode == 400 ||
+          response.statusCode == 401 ||
+          response.statusCode == 403) {
+        throw const AssetImageException(
+          'Cloudinary menolak konfigurasi upload. Periksa upload preset unsigned.',
+        );
+      }
       throw AssetImageException(
-        cloudinaryMessage?.trim().isNotEmpty == true
-            ? cloudinaryMessage!
-            : 'Cloudinary menolak upload gambar.',
+        'Cloudinary gagal menerima gambar (HTTP ${response.statusCode}).',
       );
     }
 
@@ -156,15 +160,11 @@ class AssetImageService {
 
   void _validateConfiguration() {
     if (_cloudName.trim().isEmpty) {
-      throw const AssetImageException(
-        'CLOUDINARY_CLOUD_NAME belum dikonfigurasi.',
-      );
+      throw const AssetImageException('Konfigurasi upload belum tersedia.');
     }
 
     if (_uploadPreset.trim().isEmpty) {
-      throw const AssetImageException(
-        'CLOUDINARY_UPLOAD_PRESET belum dikonfigurasi.',
-      );
+      throw const AssetImageException('Konfigurasi upload belum tersedia.');
     }
   }
 

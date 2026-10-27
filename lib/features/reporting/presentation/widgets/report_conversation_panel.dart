@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../../shared/presentation/notifications/labflow_notification.dart';
 import '../../data/report_conversation_service.dart';
 import '../../domain/report_message.dart';
 import '../cubit/report_conversation_cubit.dart';
@@ -63,8 +64,11 @@ class _ConversationViewState extends State<_ConversationView> {
         }
         _lastCount = state.messages.length;
         if (state.errorMessage.isNotEmpty) {
-          ScaffoldMessenger.of(context)
-              .showSnackBar(SnackBar(content: Text(state.errorMessage)));
+          showLabFlowNotification(
+            context: context,
+            message: state.errorMessage,
+            type: LabFlowNotificationType.error,
+          );
         }
       },
       builder: (context, state) {
@@ -360,8 +364,10 @@ class _ConversationViewState extends State<_ConversationView> {
       if (mounted && picked != null) setState(() => _selectedImage = picked);
     } catch (_) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gambar tidak dapat dipilih.')),
+        showLabFlowNotification(
+          context: context,
+          message: 'Gambar tidak dapat dipilih.',
+          type: LabFlowNotificationType.error,
         );
       }
     }

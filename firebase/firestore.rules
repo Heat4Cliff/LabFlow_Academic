@@ -37,6 +37,79 @@ service cloud.firestore {
         && currentUserData().role == 'student';
     }
 
+    function validCommonProfileChanges(changed) {
+      return (!('fullName' in changed)
+          || (request.resource.data.fullName is string
+            && request.resource.data.fullName.size() > 0
+            && request.resource.data.fullName.size() <= 100
+            && request.resource.data.fullName.matches('.*\\S.*')))
+        && (!('phoneNumber' in changed)
+          || request.resource.data.phoneNumber == null
+          || (request.resource.data.phoneNumber is string
+            && request.resource.data.phoneNumber.size() <= 20))
+        && (!('profilePhotoUrl' in changed)
+          || request.resource.data.profilePhotoUrl == null
+          || (request.resource.data.profilePhotoUrl is string
+            && request.resource.data.profilePhotoUrl.size() <= 2048));
+    }
+
+    function validStudentProfileChanges(changed) {
+      return (!('nim' in changed)
+          || request.resource.data.nim == null
+          || (request.resource.data.nim is string
+            && request.resource.data.nim.size() > 0
+            && request.resource.data.nim.size() <= 30
+            && request.resource.data.nim.matches('.*\\S.*')))
+        && (!('studyProgram' in changed)
+          || request.resource.data.studyProgram == null
+          || (request.resource.data.studyProgram is string
+            && request.resource.data.studyProgram.size() >= 1
+            && request.resource.data.studyProgram.size() <= 100
+            && request.resource.data.studyProgram.matches('.*\\S.*')))
+        && (!('semester' in changed)
+          || request.resource.data.semester == null
+          || (request.resource.data.semester is int
+            && request.resource.data.semester >= 1
+            && request.resource.data.semester <= 14));
+    }
+
+    function validStaffProfileChanges(changed) {
+      return (!('nip' in changed)
+          || request.resource.data.nip == null
+          || (request.resource.data.nip is string
+            && request.resource.data.nip.size() > 0
+            && request.resource.data.nip.size() <= 30
+            && request.resource.data.nip.matches('.*\\S.*')))
+        && (!('nidn' in changed)
+          || request.resource.data.nidn == null
+          || (request.resource.data.nidn is string
+            && request.resource.data.nidn.size() > 0
+            && request.resource.data.nidn.size() <= 30
+            && request.resource.data.nidn.matches('.*\\S.*')));
+    }
+
+    function validSelfProfileUpdate(userId) {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return isActive()
+        && request.auth.uid == userId
+        && validCommonProfileChanges(changed)
+        && (
+          (currentUserData().role == 'student'
+            && changed.hasOnly([
+              'fullName', 'phoneNumber', 'profilePhotoUrl',
+              'nim', 'studyProgram', 'semester'
+            ])
+            && validStudentProfileChanges(changed))
+          || (currentUserData().role == 'lab_admin'
+            && changed.hasOnly([
+              'fullName', 'phoneNumber', 'profilePhotoUrl', 'nip', 'nidn'
+            ])
+            && validStaffProfileChanges(changed))
+          || (currentUserData().role == 'superadmin'
+            && changed.hasOnly(['fullName', 'phoneNumber', 'profilePhotoUrl']))
+        );
+    }
+
     function laboratoryExists(labId) {
       return exists(
         /databases/$(database)/documents/laboratories/$(labId)
@@ -523,26 +596,8 @@ service cloud.firestore {
 
       allow create, delete: if isSuperadmin();
 
-      allow update: if isSuperadmin()
-        || (
-          isActive()
-          && request.auth.uid == userId
-          && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['fullName', 'phoneNumber', 'profilePhotoUrl'])
-          && (!('fullName' in request.resource.data.diff(resource.data).affectedKeys())
-            || (request.resource.data.fullName is string
-              && request.resource.data.fullName.size() > 0
-              && request.resource.data.fullName.size() <= 100
-              && request.resource.data.fullName.matches('.*\\S.*')))
-          && (!('phoneNumber' in request.resource.data.diff(resource.data).affectedKeys())
-            || request.resource.data.phoneNumber == null
-            || (request.resource.data.phoneNumber is string
-              && request.resource.data.phoneNumber.size() <= 20))
-          && (!('profilePhotoUrl' in request.resource.data.diff(resource.data).affectedKeys())
-            || request.resource.data.profilePhotoUrl == null
-            || (request.resource.data.profilePhotoUrl is string
-              && request.resource.data.profilePhotoUrl.size() <= 2048))
-        );
+      allow update: if (isSuperadmin() && request.auth.uid != userId)
+        || validSelfProfileUpdate(userId);
     }
 
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 enum LabFlowNotificationType { success, error, warning, info }
@@ -6,6 +8,7 @@ class LabFlowNotification extends StatelessWidget {
   const LabFlowNotification({
     required this.message,
     required this.type,
+    required this.onDismiss,
     this.title,
     super.key,
   });
@@ -13,6 +16,7 @@ class LabFlowNotification extends StatelessWidget {
   final String message;
   final String? title;
   final LabFlowNotificationType type;
+  final VoidCallback onDismiss;
 
   static const Color _dark = Color(0xFF111111);
   static const Color _muted = Color(0xFF6B7280);
@@ -87,19 +91,12 @@ class LabFlowNotification extends StatelessWidget {
 
           const SizedBox(width: 8),
 
-          Builder(
-            builder: (buttonContext) {
-              return InkWell(
-                borderRadius: BorderRadius.circular(999),
-                onTap: () {
-                  ScaffoldMessenger.of(buttonContext).hideCurrentSnackBar();
-                },
-                child: const Padding(
-                  padding: EdgeInsets.all(6),
-                  child: Icon(Icons.close_rounded, size: 18, color: _muted),
-                ),
-              );
-            },
+          IconButton(
+            key: const ValueKey('labflow-notification-close'),
+            tooltip: 'Tutup notifikasi',
+            visualDensity: VisualDensity.compact,
+            onPressed: onDismiss,
+            icon: const Icon(Icons.close_rounded, size: 18, color: _muted),
           ),
         ],
       ),
@@ -163,11 +160,7 @@ class _NotificationConfiguration {
   final Color borderColor;
 }
 
-/// Menampilkan notifikasi floating LabFlow.
-///
-/// Tetap menggunakan ScaffoldMessenger agar aman terhadap
-/// perpindahan route, tetapi visual SnackBar bawaan Flutter
-/// sepenuhnya diganti oleh notification card LabFlow.
+/// Menampilkan satu transient notification di root overlay aplikasi.
 void showLabFlowNotification({
   required BuildContext context,
   required String message,
@@ -175,29 +168,141 @@ void showLabFlowNotification({
   String? title,
   Duration duration = const Duration(seconds: 4),
 }) {
-  final messenger = ScaffoldMessenger.maybeOf(context);
-
-  if (messenger == null) {
+  if (!context.mounted) {
     return;
   }
+  final overlay = Overlay.maybeOf(context, rootOverlay: true);
+  if (overlay == null) return;
 
-  /// Hindari notification bertumpuk.
-  messenger
-    ..hideCurrentSnackBar()
-    ..showSnackBar(
-      SnackBar(
-        duration: duration,
-        behavior: SnackBarBehavior.floating,
-        elevation: 0,
-        backgroundColor: Colors.transparent,
-        padding: EdgeInsets.zero,
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 18),
-        dismissDirection: DismissDirection.down,
-        content: LabFlowNotification(
-          message: message,
-          title: title,
-          type: type,
+  final safeTop = MediaQuery.maybeOf(context)?.viewPadding.top ?? 0;
+  final headerOffset = Scaffold.maybeOf(context) == null ? 0.0 : kToolbarHeight;
+  _TopNotificationController.show(
+    overlay: overlay,
+    top: safeTop + headerOffset + 12,
+    message: message,
+    title: title,
+    type: type,
+    duration: duration,
+  );
+}
+
+class _TopNotificationController {
+  static OverlayEntry? _entry;
+  static Timer? _timer;
+  static Timer? _removeTimer;
+  static GlobalKey<_TopNotificationCardState>? _cardKey;
+  static int _generation = 0;
+
+  static void show({
+    required OverlayState overlay,
+    required double top,
+    required String message,
+    required String? title,
+    required LabFlowNotificationType type,
+    required Duration duration,
+  }) {
+    _timer?.cancel();
+    _removeTimer?.cancel();
+    if (_entry?.mounted == true) _entry!.remove();
+
+    final generation = ++_generation;
+    final cardKey = GlobalKey<_TopNotificationCardState>();
+    late final OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (_) => Positioned(
+        top: top,
+        left: 16,
+        right: 16,
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 560),
+            child: _TopNotificationCard(
+              key: cardKey,
+              message: message,
+              title: title,
+              type: type,
+              onDismiss: () => dismiss(generation),
+            ),
+          ),
         ),
       ),
     );
+    _entry = entry;
+    _cardKey = cardKey;
+    overlay.insert(entry);
+    _timer = Timer(duration, () => dismiss(generation));
+  }
+
+  static void dismiss(int generation) {
+    if (generation != _generation || _entry == null) return;
+    _timer?.cancel();
+    _cardKey?.currentState?.hide();
+    _removeTimer?.cancel();
+    _removeTimer = Timer(const Duration(milliseconds: 240), () {
+      if (generation != _generation) return;
+      final entry = _entry;
+      if (entry?.mounted == true) entry!.remove();
+      _entry = null;
+      _cardKey = null;
+      _removeTimer = null;
+    });
+  }
+}
+
+class _TopNotificationCard extends StatefulWidget {
+  const _TopNotificationCard({
+    required this.message,
+    required this.title,
+    required this.type,
+    required this.onDismiss,
+    super.key,
+  });
+
+  final String message;
+  final String? title;
+  final LabFlowNotificationType type;
+  final VoidCallback onDismiss;
+
+  @override
+  State<_TopNotificationCard> createState() => _TopNotificationCardState();
+}
+
+class _TopNotificationCardState extends State<_TopNotificationCard> {
+  bool _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _visible = true);
+    });
+  }
+
+  void hide() {
+    if (mounted) setState(() => _visible = false);
+  }
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+    ignoring: !_visible,
+    child: AnimatedSlide(
+      offset: _visible ? Offset.zero : const Offset(0, -0.35),
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      child: AnimatedOpacity(
+        opacity: _visible ? 1 : 0,
+        duration: const Duration(milliseconds: 220),
+        child: Material(
+          type: MaterialType.transparency,
+          child: LabFlowNotification(
+            message: widget.message,
+            title: widget.title,
+            type: widget.type,
+            onDismiss: widget.onDismiss,
+          ),
+        ),
+      ),
+    ),
+  );
 }

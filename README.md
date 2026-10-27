@@ -96,11 +96,11 @@ Perbedaan hak akses diberlakukan di UI dan Firestore Rules sesuai role aplikasi.
 
 ### Student
 
-Dashboard, katalog aset dengan pencarian/filter dan tampilan grid/list, detail aset, pemindaian QR, permintaan/pelacakan/pembatalan peminjaman pending, laporan dan percakapan, notifikasi in-app, serta profil.
+Dashboard, katalog aset dengan pencarian/filter dan tampilan grid/list, detail aset, pemindaian QR, permintaan/pelacakan/pembatalan peminjaman pending, laporan dan percakapan, notifikasi in-app, serta profil. Student dapat mengubah nama, nomor HP, foto, NIM, program studi, dan semester pada profil sendiri.
 
 ### Lab Admin
 
-Dashboard dan inventaris sesuai membership aktif; CRUD aset dan foto; proses persetujuan/penolakan, assignment, verifikasi pickup/return dan kondisi; kelola laporan/percakapan dan maintenance; profil.
+Dashboard dan inventaris sesuai membership aktif; CRUD aset dan foto; proses persetujuan/penolakan, assignment, verifikasi pickup/return dan kondisi; kelola laporan/percakapan dan maintenance; profil. Lab Admin dapat mengubah nama, nomor HP, foto, NIP, dan NIDN pada profil sendiri.
 
 ### Superadmin
 
