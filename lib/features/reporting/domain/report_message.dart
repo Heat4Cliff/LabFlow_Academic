@@ -7,6 +7,10 @@ class ReportMessage {
     required this.senderRole,
     required this.text,
     required this.createdAt,
+    this.senderName = '',
+    this.type = 'text',
+    this.imageUrl,
+    this.imagePublicId,
     this.deletedAt,
   });
 
@@ -16,20 +20,34 @@ class ReportMessage {
   final String text;
   final DateTime? createdAt;
   final DateTime? deletedAt;
+  final String senderName;
+  final String type;
+  final String? imageUrl;
+  final String? imagePublicId;
 
   bool get isDeleted => deletedAt != null;
 
   factory ReportMessage.fromDocument(
     DocumentSnapshot<Map<String, dynamic>> document,
   ) {
-    final data = document.data() ?? const <String, dynamic>{};
+    return ReportMessage.fromData(
+      document.id,
+      document.data() ?? const <String, dynamic>{},
+    );
+  }
+
+  factory ReportMessage.fromData(String id, Map<String, dynamic> data) {
     return ReportMessage(
-      id: document.id,
+      id: id,
       senderId: (data['senderId'] as String? ?? '').trim(),
       senderRole: (data['senderRole'] as String? ?? '').trim(),
       text: (data['text'] as String? ?? '').trim(),
       createdAt: _date(data['createdAt']),
       deletedAt: _date(data['deletedAt']),
+      senderName: (data['senderName'] as String? ?? '').trim(),
+      type: (data['type'] as String? ?? 'text').trim(),
+      imageUrl: data['imageUrl'] as String?,
+      imagePublicId: data['imagePublicId'] as String?,
     );
   }
 }

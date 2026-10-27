@@ -137,6 +137,30 @@ class _LabAdminProfileView extends StatelessWidget {
             value: profile.email.isEmpty ? '-' : profile.email,
           ),
           const SizedBox(height: 10),
+          _infoCard(
+            icon: Icons.phone_outlined,
+            label: 'Nomor HP',
+            value: profile.phoneNumber?.trim().isNotEmpty == true
+                ? profile.phoneNumber!
+                : 'Belum diisi',
+          ),
+          const SizedBox(height: 10),
+          _infoCard(
+            icon: Icons.badge_outlined,
+            label: 'NIP',
+            value: profile.nip?.trim().isNotEmpty == true
+                ? profile.nip!
+                : 'Belum diisi',
+          ),
+          const SizedBox(height: 10),
+          _infoCard(
+            icon: Icons.school_outlined,
+            label: 'NIDN',
+            value: profile.nidn?.trim().isNotEmpty == true
+                ? profile.nidn!
+                : 'Belum diisi',
+          ),
+          const SizedBox(height: 10),
           Row(
             children: [
               Expanded(
@@ -249,22 +273,17 @@ class _LabAdminProfileView extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 82,
-            height: 82,
-            decoration: const BoxDecoration(
-              color: Color(0xFFB9F33D),
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              profile.initials,
-              style: const TextStyle(
-                fontSize: 27,
-                fontWeight: FontWeight.w900,
-                color: Color(0xFF111111),
-              ),
-            ),
+          ClipOval(
+            child: profile.profilePhotoUrl?.isNotEmpty == true
+                ? Image.network(
+                    profile.profilePhotoUrl!,
+                    width: 82,
+                    height: 82,
+                    cacheWidth: 246,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => _initialAvatar(profile.initials),
+                  )
+                : _initialAvatar(profile.initials),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -302,6 +321,21 @@ class _LabAdminProfileView extends StatelessWidget {
       ),
     );
   }
+
+  Widget _initialAvatar(String initials) => Container(
+    width: 82,
+    height: 82,
+    alignment: Alignment.center,
+    color: const Color(0xFFB9F33D),
+    child: Text(
+      initials,
+      style: const TextStyle(
+        fontSize: 27,
+        fontWeight: FontWeight.w900,
+        color: Color(0xFF111111),
+      ),
+    ),
+  );
 
   Widget _sectionTitle(String title) {
     return Text(

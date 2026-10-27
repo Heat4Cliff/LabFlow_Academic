@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -7,7 +8,9 @@ import 'package:image_picker/image_picker.dart';
 class AssetImageService {
   AssetImageService({ImagePicker? imagePicker, http.Client? httpClient})
     : _imagePicker = imagePicker ?? ImagePicker(),
-      _httpClient = httpClient ?? http.Client();
+      _httpClient = httpClient ?? _sharedClient;
+
+  static final http.Client _sharedClient = http.Client();
 
   final ImagePicker _imagePicker;
   final http.Client _httpClient;
@@ -18,8 +21,6 @@ class AssetImageService {
   static const String _uploadPreset = String.fromEnvironment(
     'CLOUDINARY_UPLOAD_PRESET',
   );
-
-  static const int _maximumImageBytes = 5 * 1024 * 1024;
 
   /// Memilih satu foto aset dari galeri perangkat.
   Future<XFile?> pickFromGallery() async {
@@ -39,6 +40,18 @@ class AssetImageService {
     required XFile image,
     required String laboratoryId,
   }) async {
+    return (await uploadImage(
+      image: image,
+      folder: 'labflow/assets/$laboratoryId',
+      maximumBytes: 5 * 1024 * 1024,
+    )).secureUrl;
+  }
+
+  Future<CloudinaryImageUpload> uploadImage({
+    required XFile image,
+    required String folder,
+    int maximumBytes = 10 * 1024 * 1024,
+  }) async {
     _validateConfiguration();
 
     final file = File(image.path);
@@ -53,8 +66,10 @@ class AssetImageService {
       throw const AssetImageException('File gambar kosong atau tidak valid.');
     }
 
-    if (fileSize > _maximumImageBytes) {
-      throw const AssetImageException('Ukuran gambar maksimal 5 MB.');
+    if (fileSize > maximumBytes) {
+      throw AssetImageException(
+        'Ukuran gambar maksimal ${maximumBytes ~/ (1024 * 1024)} MB.',
+      );
     }
 
     final extension = _fileExtension(image.name);
@@ -70,7 +85,7 @@ class AssetImageService {
 
     final request = http.MultipartRequest('POST', uri);
     request.fields['upload_preset'] = _uploadPreset;
-    request.fields['folder'] = 'labflow/assets/$laboratoryId';
+    request.fields['folder'] = folder;
     request.files.add(
       await http.MultipartFile.fromPath(
         'file',
@@ -96,7 +111,16 @@ class AssetImageService {
       );
     }
 
-    final responseBody = await response.stream.bytesToString();
+    String responseBody;
+    try {
+      responseBody = await response.stream.bytesToString().timeout(
+        const Duration(seconds: 30),
+      );
+    } on TimeoutException {
+      throw const AssetImageException(
+        'Upload melewati batas waktu. Coba lagi.',
+      );
+    }
 
     Map<String, dynamic>? data;
     try {
@@ -124,7 +148,10 @@ class AssetImageService {
       );
     }
 
-    return secureUrl.trim();
+    return CloudinaryImageUpload(
+      secureUrl: secureUrl.trim(),
+      publicId: (data?['public_id'] as String?)?.trim(),
+    );
   }
 
   void _validateConfiguration() {
@@ -160,4 +187,10 @@ class AssetImageException implements Exception {
 
   @override
   String toString() => message;
+}
+
+class CloudinaryImageUpload {
+  const CloudinaryImageUpload({required this.secureUrl, this.publicId});
+  final String secureUrl;
+  final String? publicId;
 }

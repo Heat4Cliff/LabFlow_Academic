@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../data/report_conversation_service.dart';
 import '../../domain/report_message.dart';
@@ -30,6 +33,8 @@ class _ConversationViewState extends State<_ConversationView> {
   final _text = TextEditingController();
   final _scroll = ScrollController();
   int _lastCount = 0;
+  final ImagePicker _picker = ImagePicker();
+  XFile? _selectedImage;
 
   @override
   void dispose() {
@@ -76,6 +81,33 @@ class _ConversationViewState extends State<_ConversationView> {
               child: _messages(context, state),
             ),
             const SizedBox(height: 10),
+            if (_selectedImage != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.file(
+                        File(_selectedImage!.path),
+                        width: 76,
+                        height: 76,
+                        cacheWidth: 152,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(child: Text('Gambar siap dikirim')),
+                    IconButton(
+                      tooltip: 'Hapus gambar',
+                      onPressed: state.sending
+                          ? null
+                          : () => setState(() => _selectedImage = null),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
             Row(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -102,7 +134,11 @@ class _ConversationViewState extends State<_ConversationView> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 9),
+                IconButton(
+                  tooltip: 'Lampirkan gambar',
+                  onPressed: state.sending ? null : _chooseImage,
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                ),
                 SizedBox(
                   width: 52,
                   height: 52,
@@ -211,16 +247,53 @@ class _ConversationViewState extends State<_ConversationView> {
                 ],
               ),
               const SizedBox(height: 9),
-              Text(
-                message.isDeleted ? 'Pesan telah dihapus' : message.text,
-                style: TextStyle(
-                  fontSize: 13,
-                  height: 1.4,
-                  fontStyle: message.isDeleted
-                      ? FontStyle.italic
-                      : FontStyle.normal,
+              if (!message.isDeleted && message.imageUrl != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: GestureDetector(
+                    onTap: () => _showImage(context, message.imageUrl!),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          maxWidth: 260,
+                          maxHeight: 260,
+                        ),
+                        child: Image.network(
+                          message.imageUrl!,
+                          cacheWidth: 780,
+                          fit: BoxFit.contain,
+                          loadingBuilder: (context, child, progress) =>
+                              progress == null
+                              ? child
+                              : const SizedBox(
+                                  width: 220,
+                                  height: 150,
+                                  child: Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                ),
+                          errorBuilder: (_, _, _) => const SizedBox(
+                            width: 220,
+                            height: 100,
+                            child: Center(child: Text('Gambar tidak tersedia')),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
+              if (message.isDeleted || message.text.isNotEmpty)
+                Text(
+                  message.isDeleted ? 'Pesan telah dihapus' : message.text,
+                  style: TextStyle(
+                    fontSize: 13,
+                    height: 1.4,
+                    fontStyle: message.isDeleted
+                        ? FontStyle.italic
+                        : FontStyle.normal,
+                  ),
+                ),
               if (message.createdAt != null) ...[
                 const SizedBox(height: 8),
                 Text(
@@ -240,13 +313,87 @@ class _ConversationViewState extends State<_ConversationView> {
 
   Future<void> _send(BuildContext context) async {
     final value = _text.text;
+    final image = _selectedImage;
     final cubit = context.read<ReportConversationCubit>();
-    await cubit.send(value);
+    await cubit.send(value, image: image);
     if (mounted &&
         cubit.state.errorMessage.isEmpty &&
-        ReportConversationService.validateMessage(value) == null) {
+        ReportConversationService.validateMessage(
+              value,
+              hasImage: image != null,
+            ) ==
+            null) {
       _text.clear();
+      setState(() => _selectedImage = null);
     }
+  }
+
+  Future<void> _chooseImage() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Kamera'),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Galeri'),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+    try {
+      final picked = await _picker.pickImage(
+        source: source,
+        imageQuality: 82,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        requestFullMetadata: false,
+      );
+      if (mounted && picked != null) setState(() => _selectedImage = picked);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Gambar tidak dapat dipilih.')),
+        );
+      }
+    }
+  }
+
+  void _showImage(BuildContext context, String url) {
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (context) => Dialog.fullscreen(
+        backgroundColor: Colors.black,
+        child: Stack(
+          children: [
+            Center(
+              child: InteractiveViewer(
+                child: Image.network(url, fit: BoxFit.contain),
+              ),
+            ),
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topRight,
+                child: IconButton(
+                  color: Colors.white,
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   String _time(DateTime value) =>

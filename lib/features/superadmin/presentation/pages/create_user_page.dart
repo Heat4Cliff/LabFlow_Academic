@@ -32,6 +32,12 @@ class _CreateUserPageState extends State<_CreateUserView> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _nimController = TextEditingController();
+  final TextEditingController _programController = TextEditingController();
+  final TextEditingController _semesterController = TextEditingController();
+  final TextEditingController _nipController = TextEditingController();
+  final TextEditingController _nidnController = TextEditingController();
 
   final TextEditingController _emailController = TextEditingController();
 
@@ -50,6 +56,12 @@ class _CreateUserPageState extends State<_CreateUserView> {
   @override
   void dispose() {
     _nameController.dispose();
+    _phoneController.dispose();
+    _nimController.dispose();
+    _programController.dispose();
+    _semesterController.dispose();
+    _nipController.dispose();
+    _nidnController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
@@ -85,6 +97,12 @@ class _CreateUserPageState extends State<_CreateUserView> {
         password: _passwordController.text,
         role: _selectedRole,
         status: _selectedStatus,
+        phoneNumber: _phoneController.text,
+        nim: _nimController.text,
+        studyProgram: _programController.text,
+        semester: int.tryParse(_semesterController.text),
+        nip: _nipController.text,
+        nidn: _nidnController.text,
       );
 
       if (!mounted) {
@@ -344,6 +362,75 @@ class _CreateUserPageState extends State<_CreateUserView> {
                           });
                         },
                 ),
+
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _phoneController,
+                  maxLength: 20,
+                  keyboardType: TextInputType.phone,
+                  decoration: _inputDecoration(
+                    label: 'Nomor HP',
+                    hint: 'Opsional',
+                    icon: Icons.phone_outlined,
+                  ),
+                ),
+                if (_selectedRole == 'student') ...[
+                  TextFormField(
+                    controller: _nimController,
+                    maxLength: 30,
+                    decoration: _inputDecoration(
+                      label: 'NIM',
+                      hint: 'Opsional',
+                      icon: Icons.badge_outlined,
+                    ),
+                  ),
+                  TextFormField(
+                    controller: _programController,
+                    maxLength: 100,
+                    decoration: _inputDecoration(
+                      label: 'Program Studi',
+                      hint: 'Opsional',
+                      icon: Icons.school_outlined,
+                    ),
+                  ),
+                  TextFormField(
+                    controller: _semesterController,
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      final raw = value?.trim() ?? '';
+                      if (raw.isEmpty) return null;
+                      final semester = int.tryParse(raw);
+                      return semester == null || semester < 1 || semester > 14
+                          ? 'Semester harus 1–14.'
+                          : null;
+                    },
+                    decoration: _inputDecoration(
+                      label: 'Semester (1–14)',
+                      hint: 'Opsional',
+                      icon: Icons.calendar_month_outlined,
+                    ),
+                  ),
+                ],
+                if (_selectedRole == 'lab_admin') ...[
+                  TextFormField(
+                    controller: _nipController,
+                    maxLength: 30,
+                    decoration: _inputDecoration(
+                      label: 'NIP',
+                      hint: 'Opsional',
+                      icon: Icons.badge_outlined,
+                    ),
+                  ),
+                  TextFormField(
+                    controller: _nidnController,
+                    maxLength: 30,
+                    decoration: _inputDecoration(
+                      label: 'NIDN',
+                      hint: 'Opsional',
+                      icon: Icons.school_outlined,
+                    ),
+                  ),
+                ],
 
                 const SizedBox(height: 20),
 

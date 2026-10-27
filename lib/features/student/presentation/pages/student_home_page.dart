@@ -100,23 +100,18 @@ class _StudentHomeView extends StatelessWidget {
         children: [
           Row(
             children: [
-              Container(
-                width: 50,
-                height: 50,
-                decoration: BoxDecoration(
-                  color: studentSoftLime,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: studentInk),
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  data.profile.initials,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    color: studentInk,
-                  ),
-                ),
+              ClipOval(
+                child: data.profile.profilePhotoUrl?.isNotEmpty == true
+                    ? Image.network(
+                        data.profile.profilePhotoUrl!,
+                        width: 50,
+                        height: 50,
+                        cacheWidth: 150,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) =>
+                            _studentAvatarFallback(data.profile.initials),
+                      )
+                    : _studentAvatarFallback(data.profile.initials),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -428,6 +423,25 @@ class _StudentHomeView extends StatelessWidget {
       ),
     );
   }
+
+  Widget _studentAvatarFallback(String initials) => Container(
+    width: 50,
+    height: 50,
+    alignment: Alignment.center,
+    decoration: BoxDecoration(
+      color: studentSoftLime,
+      shape: BoxShape.circle,
+      border: Border.all(color: studentInk),
+    ),
+    child: Text(
+      initials,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w900,
+        color: studentInk,
+      ),
+    ),
+  );
 
   Widget _quickAction({
     required IconData icon,

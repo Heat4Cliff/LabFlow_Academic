@@ -199,6 +199,13 @@ classDiagram
         +fullName
         +role
         +status
+        +profilePhotoUrl
+        +phoneNumber
+        +nim
+        +studyProgram
+        +semester
+        +nip
+        +nidn
     }
     class Laboratory {
         +id
@@ -263,7 +270,11 @@ classDiagram
         +id
         +senderId
         +senderRole
+        +senderName
         +text
+        +type
+        +imageUrl
+        +imagePublicId
     }
     class MaintenanceRecord {
         +id
@@ -407,7 +418,7 @@ erDiagram
 
 | Path | Isi |
 |---|---|
-| <code>users/{uid}</code> | Profil, role, status akun; UID mengikuti Firebase Auth. |
+| <code>users/{uid}</code> | Profil, role, status akun, foto/telepon; field akademik dan kepegawaian opsional. UID mengikuti Firebase Auth. |
 | <code>laboratories/{labId}</code> | Identitas dan status laboratorium. |
 | <code>lab_memberships/{uid}__{labId}</code> | Membership Lab Admin; ID memakai dua underscore. |
 | <code>assets/{assetId}</code> | Inventaris, stok, kondisi/status, QR, URL foto. |
@@ -467,6 +478,8 @@ stateDiagram-v2
 Status request dan status dokumen borrowing per item sama-sama dicatat. Request dapat memiliki beberapa item sehingga assignment dan pemeriksaan aset dikerjakan per item.
 
 ### Report dan percakapan
+
+Pesan laporan mendukung teks, gambar, dan caption gambar. Pesan lama tanpa field `type` dibaca sebagai pesan teks. Foto profil, aset, dan chat memakai uploader Cloudinary unsigned yang sama; file dibatasi dan dikecilkan sebelum upload. Upload gambar membutuhkan koneksi internet. URL gambar hanya disimpan pada dokumen yang mengikuti Rules akses report yang sama.
 
 Student membuat report <code>open</code>. Lab Admin dapat mengubah ke <code>acknowledged</code>, <code>in_progress</code>, <code>resolved</code>, <code>closed</code>, atau <code>rejected</code> melalui transisi yang dibatasi Rules. Pesan berada pada subcollection report; pembaruan terkait menghasilkan notifikasi in-app.
 

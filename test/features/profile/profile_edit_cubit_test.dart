@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:labflow/features/auth/domain/user_profile.dart';
 import 'package:labflow/features/profile/data/profile_edit_service.dart';
 import 'package:labflow/features/profile/presentation/cubit/profile_edit_cubit.dart';
@@ -17,7 +18,12 @@ class _ProfileEditor implements ProfileEditor {
   Future<UserProfile> load() async => profile;
 
   @override
-  Future<UserProfile> saveFullName(String fullName) async {
+  Future<UserProfile> saveProfile({
+    required String fullName,
+    required String phoneNumber,
+    XFile? photo,
+    bool removePhoto = false,
+  }) async {
     savedName = fullName;
     profile = UserProfile(
       uid: profile.uid,

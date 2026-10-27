@@ -1,6 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../asset/data/asset_image_service.dart';
+import '../../../core/connectivity/connectivity_service.dart';
 import '../../../shared/data/student_notification_writer.dart';
 import '../domain/report_message.dart';
 
@@ -11,10 +14,12 @@ class ReportConversationService {
 
   final FirebaseFirestore _firestore;
   final FirebaseAuth _auth;
+  final AssetImageService _images = AssetImageService();
+  final ConnectivityService _connectivity = PluginConnectivityService();
 
-  static String? validateMessage(String value) {
+  static String? validateMessage(String value, {bool hasImage = false}) {
     final text = value.trim();
-    if (text.isEmpty) return 'Pesan tidak boleh kosong.';
+    if (text.isEmpty && !hasImage) return 'Pesan tidak boleh kosong.';
     if (text.length > 1000) return 'Pesan maksimal 1000 karakter.';
     return null;
   }
@@ -23,16 +28,19 @@ class ReportConversationService {
       .collection('reports')
       .doc(reportId)
       .collection('messages')
-      .orderBy('createdAt')
+      .orderBy('createdAt', descending: true)
+      .limit(50)
       .snapshots()
       .map(
         (snapshot) => snapshot.docs
             .map(ReportMessage.fromDocument)
+            .toList(growable: false)
+            .reversed
             .toList(growable: false),
       );
 
-  Future<void> send(String reportId, String rawText) async {
-    final validation = validateMessage(rawText);
+  Future<void> send(String reportId, String rawText, {XFile? image}) async {
+    final validation = validateMessage(rawText, hasImage: image != null);
     if (validation != null) throw ReportConversationException(validation);
     final user = _auth.currentUser;
     if (user == null) {
@@ -47,6 +55,24 @@ class ReportConversationService {
         'Akun tidak dapat mengirim pesan.',
       );
     }
+    CloudinaryImageUpload? upload;
+    if (image != null) {
+      if (!await _connectivity.hasNetworkInterface()) {
+        throw const ReportConversationException(
+          'Upload gambar membutuhkan koneksi internet.',
+        );
+      }
+      upload = await _images.uploadImage(
+        image: image,
+        folder: 'labflow/reports/$reportId/chat',
+        maximumBytes: 5 * 1024 * 1024,
+      );
+    }
+    final messageType = upload == null
+        ? 'text'
+        : rawText.trim().isEmpty
+        ? 'image'
+        : 'mixed';
     await _firestore
         .collection('reports')
         .doc(reportId)
@@ -54,13 +80,20 @@ class ReportConversationService {
         .add({
           'senderId': user.uid,
           'senderRole': role,
+          'senderName': (data?['fullName'] as String? ?? '').trim(),
           'text': rawText.trim(),
+          'type': messageType,
+          if (upload != null) 'imageUrl': upload.secureUrl,
+          if (upload?.publicId != null) 'imagePublicId': upload!.publicId,
           'createdAt': FieldValue.serverTimestamp(),
           'deletedAt': null,
         });
     if (role == 'lab_admin') {
-      await StudentNotificationWriter(_firestore)
-          .report(reportId, message: true);
+      await StudentNotificationWriter(_firestore).report(
+        reportId,
+        message: true,
+        imageOnly: image != null && rawText.trim().isEmpty,
+      );
     }
   }
 

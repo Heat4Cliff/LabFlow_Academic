@@ -80,6 +80,11 @@ class StudentService {
               .trim(),
       email: (data['email'] as String? ?? authUser?.email ?? '').trim(),
       status: (data['status'] as String? ?? 'active').trim(),
+      profilePhotoUrl: data['profilePhotoUrl'] as String?,
+      phoneNumber: data['phoneNumber'] as String?,
+      nim: data['nim'] as String?,
+      studyProgram: data['studyProgram'] as String?,
+      semester: data['semester'] as int?,
     );
   }
 

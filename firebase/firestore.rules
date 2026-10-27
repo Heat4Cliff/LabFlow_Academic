@@ -528,11 +528,20 @@ service cloud.firestore {
           isActive()
           && request.auth.uid == userId
           && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['fullName'])
-          && request.resource.data.fullName is string
-          && request.resource.data.fullName.size() > 0
-          && request.resource.data.fullName.size() <= 100
-          && request.resource.data.fullName.matches('.*\\S.*')
+            .hasOnly(['fullName', 'phoneNumber', 'profilePhotoUrl'])
+          && (!('fullName' in request.resource.data.diff(resource.data).affectedKeys())
+            || (request.resource.data.fullName is string
+              && request.resource.data.fullName.size() > 0
+              && request.resource.data.fullName.size() <= 100
+              && request.resource.data.fullName.matches('.*\\S.*')))
+          && (!('phoneNumber' in request.resource.data.diff(resource.data).affectedKeys())
+            || request.resource.data.phoneNumber == null
+            || (request.resource.data.phoneNumber is string
+              && request.resource.data.phoneNumber.size() <= 20))
+          && (!('profilePhotoUrl' in request.resource.data.diff(resource.data).affectedKeys())
+            || request.resource.data.profilePhotoUrl == null
+            || (request.resource.data.profilePhotoUrl is string
+              && request.resource.data.profilePhotoUrl.size() <= 2048))
         );
     }
 
@@ -1020,6 +1029,13 @@ service cloud.firestore {
       allow delete: if false;
 
       match /messages/{messageId} {
+        function optionalMessageFieldUnchanged(field) {
+          return (!(field in resource.data) && !(field in request.resource.data))
+            || ((field in resource.data)
+              && (field in request.resource.data)
+              && request.resource.data[field] == resource.data[field]);
+        }
+
         function reportParticipants() {
           return isStudent()
               && get(
@@ -1040,7 +1056,8 @@ service cloud.firestore {
             'senderId', 'senderRole', 'text', 'createdAt', 'deletedAt'
           ])
           && request.resource.data.keys().hasOnly([
-            'senderId', 'senderRole', 'text', 'createdAt', 'deletedAt'
+            'senderId', 'senderRole', 'senderName', 'text', 'type',
+            'imageUrl', 'imagePublicId', 'createdAt', 'deletedAt'
           ])
           && request.resource.data.senderId == request.auth.uid
           && (
@@ -1048,8 +1065,26 @@ service cloud.firestore {
             || (isLabAdmin() && request.resource.data.senderRole == 'lab_admin')
           )
           && request.resource.data.text is string
-          && request.resource.data.text.size() >= 1
           && request.resource.data.text.size() <= 1000
+          && (!('senderName' in request.resource.data)
+            || (request.resource.data.senderName is string
+              && request.resource.data.senderName.size() <= 100))
+          && request.resource.data.type in ['text', 'image', 'mixed']
+          && (
+            (request.resource.data.type == 'text'
+              && request.resource.data.text.size() >= 1
+              && !('imageUrl' in request.resource.data))
+            || (request.resource.data.type == 'image'
+              && request.resource.data.text.size() == 0
+              && request.resource.data.imageUrl is string
+              && request.resource.data.imageUrl.size() <= 2048)
+            || (request.resource.data.type == 'mixed'
+              && request.resource.data.imageUrl is string
+              && request.resource.data.imageUrl.size() <= 2048)
+          )
+          && (!('imagePublicId' in request.resource.data)
+            || (request.resource.data.imagePublicId is string
+              && request.resource.data.imagePublicId.size() <= 255))
           && request.resource.data.createdAt == request.time
           && request.resource.data.deletedAt == null;
 
@@ -1060,6 +1095,10 @@ service cloud.firestore {
           && request.resource.data.senderId == resource.data.senderId
           && request.resource.data.senderRole == resource.data.senderRole
           && request.resource.data.text == resource.data.text
+          && optionalMessageFieldUnchanged('senderName')
+          && optionalMessageFieldUnchanged('type')
+          && optionalMessageFieldUnchanged('imageUrl')
+          && optionalMessageFieldUnchanged('imagePublicId')
           && request.resource.data.createdAt == resource.data.createdAt
           && request.resource.data.deletedAt == request.time
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedAt']);

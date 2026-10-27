@@ -6,6 +6,10 @@ class LabAdminProfile {
     required this.role,
     required this.status,
     required this.laboratories,
+    this.profilePhotoUrl,
+    this.phoneNumber,
+    this.nip,
+    this.nidn,
   });
 
   final String uid;
@@ -14,6 +18,10 @@ class LabAdminProfile {
   final String role;
   final String status;
   final List<LabAdminProfileLaboratory> laboratories;
+  final String? profilePhotoUrl;
+  final String? phoneNumber;
+  final String? nip;
+  final String? nidn;
 
   String get displayName =>
       fullName.trim().isEmpty ? 'Lab Admin' : fullName.trim();

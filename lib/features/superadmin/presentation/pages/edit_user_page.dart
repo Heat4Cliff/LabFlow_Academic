@@ -44,6 +44,12 @@ class _EditUserView extends StatefulWidget {
 class _EditUserPageState extends State<_EditUserView> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _nimController = TextEditingController();
+  final TextEditingController _programController = TextEditingController();
+  final TextEditingController _semesterController = TextEditingController();
+  final TextEditingController _nipController = TextEditingController();
+  final TextEditingController _nidnController = TextEditingController();
   bool _initialised = false;
   bool get _isSaving => context.read<UserManagementActionCubit>().state;
   bool get _isChangingStatus => _isSaving;
@@ -60,6 +66,12 @@ class _EditUserPageState extends State<_EditUserView> {
   @override
   void dispose() {
     _nameController.dispose();
+    _phoneController.dispose();
+    _nimController.dispose();
+    _programController.dispose();
+    _semesterController.dispose();
+    _nipController.dispose();
+    _nidnController.dispose();
     super.dispose();
   }
 
@@ -70,6 +82,12 @@ class _EditUserPageState extends State<_EditUserView> {
   void _fillForm(UserProfile profile) {
     if (_initialised) return;
     _nameController.text = profile.fullName;
+    _phoneController.text = profile.phoneNumber ?? '';
+    _nimController.text = profile.nim ?? '';
+    _programController.text = profile.studyProgram ?? '';
+    _semesterController.text = profile.semester?.toString() ?? '';
+    _nipController.text = profile.nip ?? '';
+    _nidnController.text = profile.nidn ?? '';
     _role = profile.role;
     _status = profile.status;
     _originalFullName = profile.fullName;
@@ -103,6 +121,12 @@ class _EditUserPageState extends State<_EditUserView> {
         originalFullName: oldFullName,
         originalRole: oldRole,
         email: _originalEmail,
+        phoneNumber: _phoneController.text,
+        nim: _nimController.text,
+        studyProgram: _programController.text,
+        semester: int.tryParse(_semesterController.text),
+        nip: _nipController.text,
+        nidn: _nidnController.text,
       );
 
       /// Memperbarui snapshot lokal.
@@ -327,6 +351,56 @@ class _EditUserPageState extends State<_EditUserView> {
                   Icons.person_outline_rounded,
                 ),
               ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _phoneController,
+                maxLength: 20,
+                keyboardType: TextInputType.phone,
+                decoration: _inputDecoration('Nomor HP', Icons.phone_outlined),
+              ),
+              if (_role == 'student') ...[
+                TextFormField(
+                  controller: _nimController,
+                  maxLength: 30,
+                  decoration: _inputDecoration('NIM', Icons.badge_outlined),
+                ),
+                TextFormField(
+                  controller: _programController,
+                  maxLength: 100,
+                  decoration: _inputDecoration(
+                    'Program Studi',
+                    Icons.school_outlined,
+                  ),
+                ),
+                TextFormField(
+                  controller: _semesterController,
+                  keyboardType: TextInputType.number,
+                  validator: (value) {
+                    final raw = value?.trim() ?? '';
+                    if (raw.isEmpty) return null;
+                    final semester = int.tryParse(raw);
+                    return semester == null || semester < 1 || semester > 14
+                        ? 'Semester harus 1–14.'
+                        : null;
+                  },
+                  decoration: _inputDecoration(
+                    'Semester (1–14)',
+                    Icons.calendar_month_outlined,
+                  ),
+                ),
+              ],
+              if (_role == 'lab_admin') ...[
+                TextFormField(
+                  controller: _nipController,
+                  maxLength: 30,
+                  decoration: _inputDecoration('NIP', Icons.badge_outlined),
+                ),
+                TextFormField(
+                  controller: _nidnController,
+                  maxLength: 30,
+                  decoration: _inputDecoration('NIDN', Icons.school_outlined),
+                ),
+              ],
               const SizedBox(height: 16),
 
               /// =================================================

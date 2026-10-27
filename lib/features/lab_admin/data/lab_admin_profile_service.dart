@@ -98,6 +98,10 @@ class LabAdminProfileService {
         role: (userData['role'] as String? ?? 'lab_admin').trim(),
         status: (userData['status'] as String? ?? 'active').trim(),
         laboratories: laboratories,
+        profilePhotoUrl: userData['profilePhotoUrl'] as String?,
+        phoneNumber: userData['phoneNumber'] as String?,
+        nip: userData['nip'] as String?,
+        nidn: userData['nidn'] as String?,
       );
     } on FirebaseException catch (error) {
       if (error.code == 'permission-denied') {

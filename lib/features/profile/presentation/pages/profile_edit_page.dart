@@ -1,6 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../data/profile_edit_service.dart';
 import '../cubit/profile_edit_cubit.dart';
@@ -28,11 +31,14 @@ class _ProfileEditView extends StatefulWidget {
 
 class _ProfileEditViewState extends State<_ProfileEditView> {
   final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final ImagePicker _picker = ImagePicker();
   bool _initialized = false;
 
   @override
   void dispose() {
     _nameController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
@@ -55,6 +61,7 @@ class _ProfileEditViewState extends State<_ProfileEditView> {
         if (state.profile != null && !_initialized) {
           _initialized = true;
           _nameController.text = state.profile!.fullName;
+          _phoneController.text = state.profile!.phoneNumber ?? '';
         }
         if (state.status == ProfileEditStatus.success) {
           if (context.canPop()) {
@@ -98,10 +105,76 @@ class _ProfileEditViewState extends State<_ProfileEditView> {
             _ => ListView(
               padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
               children: [
+                Center(
+                  child: Column(
+                    children: [
+                      GestureDetector(
+                        onTap: state.status == ProfileEditStatus.saving
+                            ? null
+                            : _choosePhoto,
+                        child: CircleAvatar(
+                          radius: 48,
+                          backgroundColor: const Color(0xFFE2F0B9),
+                          backgroundImage: state.photo != null
+                              ? FileImage(File(state.photo!.path))
+                              : !state.removePhoto && state.photoUrl != null
+                              ? NetworkImage(state.photoUrl!) as ImageProvider
+                              : null,
+                          child:
+                              state.photo == null &&
+                                  (state.photoUrl == null || state.removePhoto)
+                              ? Text(_initials(state.fullName))
+                              : null,
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: state.status == ProfileEditStatus.saving
+                            ? null
+                            : _choosePhoto,
+                        icon: const Icon(Icons.photo_camera_outlined),
+                        label: const Text('Ubah foto'),
+                      ),
+                      if (state.photoUrl != null || state.photo != null)
+                        TextButton(
+                          onPressed: state.status == ProfileEditStatus.saving
+                              ? null
+                              : context
+                                    .read<ProfileEditCubit>()
+                                    .removeProfilePhoto,
+                          child: const Text('Hapus foto'),
+                        ),
+                    ],
+                  ),
+                ),
                 const Text(
                   'Nama lengkap',
                   style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                 ),
+                const SizedBox(height: 18),
+                const Text(
+                  'Nomor HP',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  maxLength: 20,
+                  enabled: state.status != ProfileEditStatus.saving,
+                  onChanged: context.read<ProfileEditCubit>().setPhoneNumber,
+                  decoration: const InputDecoration(
+                    labelText: 'Nomor HP (opsional)',
+                  ),
+                ),
+                if (state.profile?.isStudent == true) ...[
+                  _readOnly('NIM', state.profile?.nim),
+                  _readOnly('Program Studi', state.profile?.studyProgram),
+                  _readOnly('Semester', state.profile?.semester?.toString()),
+                ],
+                if (state.profile?.isLabAdmin == true) ...[
+                  _readOnly('NIP', state.profile?.nip),
+                  _readOnly('NIDN', state.profile?.nidn),
+                ],
                 const SizedBox(height: 10),
                 TextField(
                   controller: _nameController,
@@ -172,4 +245,58 @@ class _ProfileEditViewState extends State<_ProfileEditView> {
       ),
     ),
   );
+
+  Future<void> _choosePhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              title: const Text('Ambil Foto'),
+              leading: const Icon(Icons.camera_alt),
+              onTap: () => Navigator.pop(context, ImageSource.camera),
+            ),
+            ListTile(
+              title: const Text('Pilih dari Galeri'),
+              leading: const Icon(Icons.photo_library),
+              onTap: () => Navigator.pop(context, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+    final photo = await _picker.pickImage(
+      source: source,
+      imageQuality: 82,
+      maxWidth: 512,
+      maxHeight: 512,
+      requestFullMetadata: false,
+    );
+    if (mounted && photo != null) {
+      context.read<ProfileEditCubit>().setPhoto(photo);
+    }
+  }
+
+  Widget _readOnly(String label, String? value) => Padding(
+    padding: const EdgeInsets.only(top: 12),
+    child: ListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(label),
+      subtitle: Text(value?.trim().isNotEmpty == true ? value! : 'Belum diisi'),
+    ),
+  );
+
+  String _initials(String name) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '?';
+    return parts.length == 1
+        ? parts.first.substring(0, 1).toUpperCase()
+        : '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+  }
 }

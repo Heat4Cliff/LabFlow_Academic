@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../data/report_conversation_service.dart';
 import '../../domain/report_message.dart';
@@ -58,17 +59,20 @@ class ReportConversationCubit extends Cubit<ReportConversationState> {
     watch(id);
   }
 
-  Future<void> send(String text) async {
+  Future<void> send(String text, {XFile? image}) async {
     final id = _reportId;
     if (id == null || state.sending) return;
-    final validation = ReportConversationService.validateMessage(text);
+    final validation = ReportConversationService.validateMessage(
+      text,
+      hasImage: image != null,
+    );
     if (validation != null) {
       emit(state.copyWith(errorMessage: validation));
       return;
     }
     emit(state.copyWith(sending: true, errorMessage: ''));
     try {
-      await _service.send(id, text);
+      await _service.send(id, text, image: image);
       emit(state.copyWith(sending: false));
     } on ReportConversationException catch (error) {
       emit(state.copyWith(sending: false, errorMessage: error.message));
@@ -76,7 +80,9 @@ class ReportConversationCubit extends Cubit<ReportConversationState> {
       emit(
         state.copyWith(
           sending: false,
-          errorMessage: 'Pesan gagal dikirim. Coba lagi.',
+          errorMessage: image == null
+              ? 'Pesan gagal dikirim. Coba lagi.'
+              : 'Gambar gagal diunggah atau pesan tidak terkirim. Coba lagi.',
         ),
       );
     }

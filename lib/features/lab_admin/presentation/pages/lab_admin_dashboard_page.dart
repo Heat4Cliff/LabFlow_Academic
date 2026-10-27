@@ -354,6 +354,20 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
                     ],
                   ),
                 ),
+                ClipOval(
+                  child: profile.profilePhotoUrl?.isNotEmpty == true
+                      ? Image.network(
+                          profile.profilePhotoUrl!,
+                          width: 42,
+                          height: 42,
+                          cacheWidth: 126,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) =>
+                              _adminAvatarFallback(profile.fullName),
+                        )
+                      : _adminAvatarFallback(profile.fullName),
+                ),
+                const SizedBox(width: 8),
                 Container(
                   width: 48,
                   height: 48,
@@ -519,6 +533,29 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _adminAvatarFallback(String name) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+    final initials = parts.isEmpty
+        ? 'LA'
+        : parts.length == 1
+        ? parts.first.substring(0, 1).toUpperCase()
+        : '${parts.first[0]}${parts.last[0]}'.toUpperCase();
+    return Container(
+      width: 42,
+      height: 42,
+      alignment: Alignment.center,
+      color: _lime,
+      child: Text(
+        initials,
+        style: const TextStyle(fontWeight: FontWeight.w800, color: _ink),
       ),
     );
   }

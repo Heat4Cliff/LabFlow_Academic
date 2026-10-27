@@ -1,11 +1,19 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
 
+import '../../../core/connectivity/connectivity_service.dart';
+import '../../asset/data/asset_image_service.dart';
 import '../../auth/data/auth_service.dart';
 import '../../auth/domain/user_profile.dart';
 
 abstract class ProfileEditor {
   Future<UserProfile> load();
-  Future<UserProfile> saveFullName(String fullName);
+  Future<UserProfile> saveProfile({
+    required String fullName,
+    required String phoneNumber,
+    XFile? photo,
+    bool removePhoto = false,
+  });
 }
 
 class ProfileEditService implements ProfileEditor {
@@ -15,6 +23,8 @@ class ProfileEditService implements ProfileEditor {
 
   final AuthService _authService;
   final FirebaseFirestore _firestore;
+  final AssetImageService _images = AssetImageService();
+  final ConnectivityService _connectivity = PluginConnectivityService();
 
   static String? validateFullName(String value) {
     final clean = value.trim();
@@ -23,13 +33,23 @@ class ProfileEditService implements ProfileEditor {
     return null;
   }
 
+  static String? validatePhoneNumber(String value) =>
+      value.trim().length > 20 ? 'Nomor HP maksimal 20 karakter.' : null;
+
   @override
   Future<UserProfile> load() => _authService.getCurrentUserProfile();
 
   @override
-  Future<UserProfile> saveFullName(String fullName) async {
+  Future<UserProfile> saveProfile({
+    required String fullName,
+    required String phoneNumber,
+    XFile? photo,
+    bool removePhoto = false,
+  }) async {
     final error = validateFullName(fullName);
     if (error != null) throw ProfileEditException(error);
+    final phoneError = validatePhoneNumber(phoneNumber);
+    if (phoneError != null) throw ProfileEditException(phoneError);
 
     final uid = _authService.currentUser?.uid;
     if (uid == null) {
@@ -37,10 +57,28 @@ class ProfileEditService implements ProfileEditor {
     }
 
     try {
-      await _firestore.collection('users').doc(uid).update({
+      final update = <String, Object?>{
         'fullName': fullName.trim(),
-      });
+        'phoneNumber': phoneNumber.trim().isEmpty ? null : phoneNumber.trim(),
+      };
+      if (photo != null) {
+        if (!await _connectivity.hasNetworkInterface()) {
+          throw const ProfileEditException(
+            'Foto membutuhkan koneksi internet.',
+          );
+        }
+        update['profilePhotoUrl'] = (await _images.uploadImage(
+          image: photo,
+          folder: 'labflow/profiles/$uid',
+          maximumBytes: 5 * 1024 * 1024,
+        )).secureUrl;
+      } else if (removePhoto) {
+        update['profilePhotoUrl'] = null;
+      }
+      await _firestore.collection('users').doc(uid).update(update);
       return await _authService.getCurrentUserProfile();
+    } on AssetImageException catch (error) {
+      throw ProfileEditException(error.message);
     } on FirebaseException catch (exception) {
       if (exception.code == 'permission-denied') {
         throw const ProfileEditException('Akses ubah profil ditolak.');

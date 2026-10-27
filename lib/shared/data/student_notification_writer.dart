@@ -53,7 +53,11 @@ class StudentNotificationWriter {
     }
   }
 
-  Future<void> report(String reportId, {bool message = false}) async {
+  Future<void> report(
+    String reportId, {
+    bool message = false,
+    bool imageOnly = false,
+  }) async {
     try {
       final report = await _firestore.collection('reports').doc(reportId).get();
       final data = report.data();
@@ -66,7 +70,9 @@ class StudentNotificationWriter {
             ? 'Pesan baru pada laporan'
             : 'Status laporan diperbarui',
         'body': message
-            ? 'Ada pesan baru pada laporan $number.'
+            ? imageOnly
+                  ? 'Mengirim sebuah gambar pada laporan $number.'
+                  : 'Ada pesan baru pada laporan $number.'
             : 'Ada pembaruan pada laporan $number.',
         'targetType': 'report',
         'targetId': reportId,

@@ -47,11 +47,25 @@ class UserManagementService {
     required String password,
     required String role,
     required String status,
+    String phoneNumber = '',
+    String nim = '',
+    String studyProgram = '',
+    int? semester,
+    String nip = '',
+    String nidn = '',
   }) async {
     final cleanName = fullName.trim();
     final cleanEmail = email.trim().toLowerCase();
 
     _validateProfile(fullName: cleanName, role: role, status: status);
+    _validateIdentity(
+      phoneNumber: phoneNumber,
+      nim: nim,
+      studyProgram: studyProgram,
+      semester: semester,
+      nip: nip,
+      nidn: nidn,
+    );
 
     FirebaseApp? secondaryApp;
     FirebaseAuth? secondaryAuth;
@@ -89,6 +103,18 @@ class UserManagementService {
         'fullName': cleanName,
         'role': role,
         'status': status,
+        'phoneNumber': phoneNumber.trim().isEmpty ? null : phoneNumber.trim(),
+        if (role == 'student') ...{
+          'nim': nim.trim().isEmpty ? null : nim.trim(),
+          'studyProgram': studyProgram.trim().isEmpty
+              ? null
+              : studyProgram.trim(),
+          'semester': semester,
+        },
+        if (role == 'lab_admin') ...{
+          'nip': nip.trim().isEmpty ? null : nip.trim(),
+          'nidn': nidn.trim().isEmpty ? null : nidn.trim(),
+        },
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
       });
@@ -99,6 +125,16 @@ class UserManagementService {
         fullName: cleanName,
         role: role,
         status: status,
+        phoneNumber: phoneNumber.trim().isEmpty ? null : phoneNumber.trim(),
+        nim: role == 'student' && nim.trim().isNotEmpty ? nim.trim() : null,
+        studyProgram: role == 'student' && studyProgram.trim().isNotEmpty
+            ? studyProgram.trim()
+            : null,
+        semester: role == 'student' ? semester : null,
+        nip: role == 'lab_admin' && nip.trim().isNotEmpty ? nip.trim() : null,
+        nidn: role == 'lab_admin' && nidn.trim().isNotEmpty
+            ? nidn.trim()
+            : null,
       );
     } on FirebaseAuthException catch (error) {
       throw UserManagementException(_firebaseAuthMessage(error.code));
@@ -157,10 +193,24 @@ class UserManagementService {
     required String fullName,
     required String role,
     required String status,
+    String phoneNumber = '',
+    String nim = '',
+    String studyProgram = '',
+    int? semester,
+    String nip = '',
+    String nidn = '',
   }) async {
     final cleanName = fullName.trim();
 
     _validateProfile(fullName: cleanName, role: role, status: status);
+    _validateIdentity(
+      phoneNumber: phoneNumber,
+      nim: nim,
+      studyProgram: studyProgram,
+      semester: semester,
+      nip: nip,
+      nidn: nidn,
+    );
 
     final userReference = _firestore.collection('users').doc(userId);
 
@@ -203,7 +253,46 @@ class UserManagementService {
       'role': role,
       'status': status,
       'updatedAt': FieldValue.serverTimestamp(),
+      'phoneNumber': phoneNumber.trim().isEmpty ? null : phoneNumber.trim(),
+      'nim': role == 'student' && nim.trim().isNotEmpty ? nim.trim() : null,
+      'studyProgram': role == 'student' && studyProgram.trim().isNotEmpty
+          ? studyProgram.trim()
+          : null,
+      'semester': role == 'student' ? semester : null,
+      'nip': role == 'lab_admin' && nip.trim().isNotEmpty ? nip.trim() : null,
+      'nidn': role == 'lab_admin' && nidn.trim().isNotEmpty
+          ? nidn.trim()
+          : null,
     });
+  }
+
+  void _validateIdentity({
+    required String phoneNumber,
+    required String nim,
+    required String studyProgram,
+    required int? semester,
+    required String nip,
+    required String nidn,
+  }) {
+    if (phoneNumber.trim().length > 20) {
+      throw const UserManagementException('Nomor HP maksimal 20 karakter.');
+    }
+    if (nim.trim().length > 30) {
+      throw const UserManagementException('NIM maksimal 30 karakter.');
+    }
+    if (studyProgram.trim().length > 100) {
+      throw const UserManagementException(
+        'Program studi maksimal 100 karakter.',
+      );
+    }
+    if (semester != null && (semester < 1 || semester > 14)) {
+      throw const UserManagementException(
+        'Semester harus berada pada rentang 1–14.',
+      );
+    }
+    if (nip.trim().length > 30 || nidn.trim().length > 30) {
+      throw const UserManagementException('NIP dan NIDN maksimal 30 karakter.');
+    }
   }
 
   /// Soft-delete pengguna.

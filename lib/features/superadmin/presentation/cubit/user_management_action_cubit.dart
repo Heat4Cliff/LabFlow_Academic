@@ -19,6 +19,12 @@ class UserManagementActionCubit extends Cubit<bool> {
     required String password,
     required String role,
     required String status,
+    String phoneNumber = '',
+    String nim = '',
+    String studyProgram = '',
+    int? semester,
+    String nip = '',
+    String nidn = '',
   }) => _run(() async {
     await _users.createUser(
       fullName: fullName,
@@ -26,6 +32,12 @@ class UserManagementActionCubit extends Cubit<bool> {
       password: password,
       role: role,
       status: status,
+      phoneNumber: phoneNumber,
+      nim: nim,
+      studyProgram: studyProgram,
+      semester: semester,
+      nip: nip,
+      nidn: nidn,
     );
     await _activityLog.logUserCreated(
       fullName: fullName,
@@ -42,12 +54,24 @@ class UserManagementActionCubit extends Cubit<bool> {
     required String originalFullName,
     required String originalRole,
     required String email,
+    String phoneNumber = '',
+    String nim = '',
+    String studyProgram = '',
+    int? semester,
+    String nip = '',
+    String nidn = '',
   }) => _run(() async {
     await _users.updateUser(
       userId: userId,
       fullName: fullName,
       role: role,
       status: status,
+      phoneNumber: phoneNumber,
+      nim: nim,
+      studyProgram: studyProgram,
+      semester: semester,
+      nip: nip,
+      nidn: nidn,
     );
     if (originalFullName.trim() != fullName.trim()) {
       await _activityLog.logUserUpdated(fullName: fullName, email: email);

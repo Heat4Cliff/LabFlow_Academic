@@ -6,12 +6,22 @@ class StudentProfile {
     required this.fullName,
     required this.email,
     required this.status,
+    this.profilePhotoUrl,
+    this.phoneNumber,
+    this.nim,
+    this.studyProgram,
+    this.semester,
   });
 
   final String uid;
   final String fullName;
   final String email;
   final String status;
+  final String? profilePhotoUrl;
+  final String? phoneNumber;
+  final String? nim;
+  final String? studyProgram;
+  final int? semester;
 
   String get displayName =>
       fullName.trim().isEmpty ? 'Mahasiswa' : fullName.trim();

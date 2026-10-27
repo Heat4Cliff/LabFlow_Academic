@@ -195,22 +195,18 @@ class _SuperadminProfilePageState extends State<_SuperadminProfileView> {
       ),
       child: Row(
         children: [
-          Container(
-            width: 80,
-            height: 80,
-            alignment: Alignment.center,
-            decoration: const BoxDecoration(
-              color: Color(0xFFB9F33D),
-              shape: BoxShape.circle,
-            ),
-            child: Text(
-              _initials(profile.fullName),
-              style: const TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF111111),
-              ),
-            ),
+          ClipOval(
+            child: profile.profilePhotoUrl?.isNotEmpty == true
+                ? Image.network(
+                    profile.profilePhotoUrl!,
+                    width: 80,
+                    height: 80,
+                    cacheWidth: 240,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) =>
+                        _avatarFallback(profile.fullName),
+                  )
+                : _avatarFallback(profile.fullName),
           ),
           const SizedBox(width: 18),
           Expanded(
@@ -265,6 +261,21 @@ class _SuperadminProfilePageState extends State<_SuperadminProfileView> {
     );
   }
 
+  Widget _avatarFallback(String name) => Container(
+    width: 80,
+    height: 80,
+    alignment: Alignment.center,
+    color: const Color(0xFFB9F33D),
+    child: Text(
+      _initials(name),
+      style: const TextStyle(
+        fontSize: 26,
+        fontWeight: FontWeight.w800,
+        color: Color(0xFF111111),
+      ),
+    ),
+  );
+
   Widget _buildAccountInformation(UserProfile profile) {
     return Container(
       width: double.infinity,
@@ -296,6 +307,14 @@ class _SuperadminProfilePageState extends State<_SuperadminProfileView> {
             icon: Icons.email_outlined,
             label: 'Email',
             value: profile.email,
+          ),
+          _buildDivider(),
+          _buildInformationRow(
+            icon: Icons.phone_outlined,
+            label: 'Nomor HP',
+            value: profile.phoneNumber?.trim().isNotEmpty == true
+                ? profile.phoneNumber!
+                : 'Belum diisi',
           ),
           _buildDivider(),
           _buildInformationRow(

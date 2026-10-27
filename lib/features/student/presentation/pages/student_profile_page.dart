@@ -82,22 +82,18 @@ class _StudentProfileView extends StatelessWidget {
             ),
             child: Row(
               children: [
-                Container(
-                  width: 82,
-                  height: 82,
-                  decoration: BoxDecoration(
-                    color: studentSoftLime,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: studentInk),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    profile.initials,
-                    style: const TextStyle(
-                      fontSize: 27,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
+                ClipOval(
+                  child: profile.profilePhotoUrl?.isNotEmpty == true
+                      ? Image.network(
+                          profile.profilePhotoUrl!,
+                          width: 82,
+                          height: 82,
+                          cacheWidth: 246,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, _, _) =>
+                              _initialAvatar(profile.initials),
+                        )
+                      : _initialAvatar(profile.initials),
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -171,6 +167,11 @@ class _StudentProfileView extends StatelessWidget {
             title: 'Tentang LabFlow',
             onTap: () => context.push('/student/profile/about'),
           ),
+          const SizedBox(height: 16),
+          _identityTile('NIM', profile.nim),
+          _identityTile('Program Studi', profile.studyProgram),
+          _identityTile('Semester', profile.semester?.toString()),
+          _identityTile('Nomor HP', profile.phoneNumber),
           const SizedBox(height: 22),
           SizedBox(
             height: 56,
@@ -206,6 +207,23 @@ class _StudentProfileView extends StatelessWidget {
       ),
     );
   }
+
+  Widget _initialAvatar(String initials) => Container(
+    width: 82,
+    height: 82,
+    alignment: Alignment.center,
+    color: studentSoftLime,
+    child: Text(
+      initials,
+      style: const TextStyle(fontSize: 27, fontWeight: FontWeight.w900),
+    ),
+  );
+
+  Widget _identityTile(String label, String? value) => ListTile(
+    dense: true,
+    title: Text(label, style: const TextStyle(fontWeight: FontWeight.w700)),
+    trailing: Text(value?.trim().isNotEmpty == true ? value! : 'Belum diisi'),
+  );
 
   Future<bool?> _confirmLogout(BuildContext context) {
     return showDialog<bool>(
