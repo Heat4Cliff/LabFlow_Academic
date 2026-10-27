@@ -440,11 +440,11 @@ sequenceDiagram
     Admin->>App: Setujui atau tolak
     App->>DB: Update status request
     Admin->>App: Tetapkan aset
-    App->>DB: Transaction: kurangi stok, buat borrowing, waiting_pickup
+    App->>DB: Transaction kurangi stok dan buat borrowing untuk pickup
     Admin->>App: Verifikasi pickup
     App->>DB: Set status active
     Admin->>App: Periksa return dan kondisi
-    App->>DB: Set returned; perbarui stok/kondisi/maintenance
+    App->>DB: Tandai returned lalu perbarui stok kondisi dan maintenance
     App->>Student: Tampilkan notifikasi status
 ```
 
