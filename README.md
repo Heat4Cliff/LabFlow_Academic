@@ -136,7 +136,7 @@ Dependency lengkap ada di <code>pubspec.yaml</code>. SDK Dart yang diminta <code
 
 Kode disusun feature-first. Pola umum aplikasi:
 
-~~~mermaid
+```mermaid
 flowchart TB
     actor["Pengguna Android"]
     ui["Flutter UI: pages dan widgets"]
@@ -151,7 +151,7 @@ flowchart TB
     service --> firestore
     service --> cloudinary
     cubit --> local
-~~~
+```
 
 Cubit mengelola state dan menghubungkan interaksi halaman ke service. Service menjalankan operasi Firebase atau integrasi eksternal, sedangkan model domain memetakan dokumen. Tidak semua feature memisahkan repository/domain tersendiri; struktur mengikuti kompleksitas feature.
 
@@ -159,7 +159,7 @@ Cubit mengelola state dan menghubungkan interaksi halaman ke service. Service me
 
 ### UML — use case-like
 
-~~~mermaid
+```mermaid
 flowchart LR
     student["Student"]
     admin["Lab Admin"]
@@ -185,13 +185,13 @@ flowchart LR
     superadmin --> manage
     superadmin --> logs
     superadmin --> profile
-~~~
+```
 
 ### UML — class diagram
 
 Field berikut mewakili model domain utama, bukan daftar lengkap semua field Firestore.
 
-~~~mermaid
+```mermaid
 classDiagram
     class UserProfile {
         +uid
@@ -291,13 +291,13 @@ classDiagram
     LabReport "1" *-- "0..*" ReportMessage : messages
     LaboratoryAsset "0..1" --> "0..*" LabReport : assetId
     LaboratoryAsset "1" --> "0..*" MaintenanceRecord : assetId
-~~~
+```
 
 ## ERD
 
 ERD ini adalah **relasi konseptual** untuk memahami dokumen/subcollection Firestore. Firestore tidak menerapkan foreign key atau join relational otomatis; referensi disimpan sebagai ID.
 
-~~~mermaid
+```mermaid
 erDiagram
     USERS ||--o{ LAB_MEMBERSHIPS : assigned
     LABORATORIES ||--o{ LAB_MEMBERSHIPS : has
@@ -401,7 +401,7 @@ erDiagram
         string activityId
         string actorUid
     }
-~~~
+```
 
 ## Firestore Structure
 
@@ -428,7 +428,7 @@ erDiagram
 
 Submit request membuat request dan item tanpa mengurangi stok. Stok baru dikurangi ketika Lab Admin menetapkan aset. Saat return, stok/kondisi diperbarui; kerusakan dapat membuat record maintenance.
 
-~~~mermaid
+```mermaid
 sequenceDiagram
     actor Student
     participant App as LabFlow
@@ -446,11 +446,11 @@ sequenceDiagram
     Admin->>App: Periksa return dan kondisi
     App->>DB: Set returned; perbarui stok/kondisi/maintenance
     App->>Student: Tampilkan notifikasi status
-~~~
+```
 
 ### Borrowing lifecycle
 
-~~~mermaid
+```mermaid
 stateDiagram-v2
     [*] --> pending
     pending --> approved: Disetujui Lab Admin
@@ -462,7 +462,7 @@ stateDiagram-v2
     rejected --> [*]
     cancelled --> [*]
     returned --> [*]
-~~~
+```
 
 Status request dan status dokumen borrowing per item sama-sama dicatat. Request dapat memiliki beberapa item sehingga assignment dan pemeriksaan aset dikerjakan per item.
 
@@ -470,7 +470,7 @@ Status request dan status dokumen borrowing per item sama-sama dicatat. Request 
 
 Student membuat report <code>open</code>. Lab Admin dapat mengubah ke <code>acknowledged</code>, <code>in_progress</code>, <code>resolved</code>, <code>closed</code>, atau <code>rejected</code> melalui transisi yang dibatasi Rules. Pesan berada pada subcollection report; pembaruan terkait menghasilkan notifikasi in-app.
 
-~~~mermaid
+```mermaid
 sequenceDiagram
     actor Student
     participant App as LabFlow
@@ -484,9 +484,9 @@ sequenceDiagram
     Admin->>App: Balas dan lanjutkan tindak lanjut
     App->>DB: Simpan messages dan notification
     App->>Student: Tampilkan status/pesan terbaru
-~~~
+```
 
-~~~mermaid
+```mermaid
 stateDiagram-v2
     [*] --> open
     open --> acknowledged: Diambil Lab Admin
@@ -497,11 +497,11 @@ stateDiagram-v2
     in_progress --> rejected: Ditolak
     closed --> [*]
     rejected --> [*]
-~~~
+```
 
 ## Struktur Project
 
-~~~text
+```text
 lib/
 ├── app/                 # app shell, theme, routing
 ├── core/                # session, storage, validators
@@ -525,7 +525,7 @@ lib/
 firebase/
 └── firestore.rules
 firestore.indexes.json
-~~~
+```
 
 ## Persyaratan Sistem
 
@@ -537,11 +537,11 @@ firestore.indexes.json
 
 ## Clone Repository
 
-~~~bash
+```bash
 git clone https://github.com/Heat4Cliff/LabFlow_Academic.git
 cd LabFlow_Academic
 flutter pub get
-~~~
+```
 
 Lanjutkan dengan setup Firebase dan konfigurasi lokal.
 
@@ -552,12 +552,12 @@ Lanjutkan dengan setup Firebase dan konfigurasi lokal.
 3. Jalankan format, analyze, dan test yang relevan.
 4. Push branch ke fork dan ajukan Pull Request ke <code>main</code>.
 
-~~~bash
+```bash
 git clone https://github.com/<USERNAME>/LabFlow_Academic.git
 cd LabFlow_Academic
 git remote add upstream https://github.com/Heat4Cliff/LabFlow_Academic.git
 git switch -c docs/describe-change
-~~~
+```
 
 ## Firebase Setup
 
@@ -569,17 +569,17 @@ Gunakan Firebase project yang Anda kelola sendiri; jangan arahkan fork ke projec
 4. Install/login Firebase CLI dan install FlutterFire CLI.
 5. Dari root repository, konfigurasi Firebase Android:
 
-~~~bash
+```bash
 flutterfire configure --platforms=android
-~~~
+```
 
 FlutterFire membuat/memperbarui <code>lib/firebase_options.dart</code> dan konfigurasi Google Services Android. Firebase client config menunjuk ke project tertentu; jangan masukkan konfigurasi project pribadi ke Pull Request tanpa koordinasi maintainer.
 
 Untuk project Anda sendiri, tinjau Rules/indexes lalu deploy:
 
-~~~bash
+```bash
 firebase deploy --only firestore:rules,firestore:indexes --project <YOUR_FIREBASE_PROJECT_ID>
-~~~
+```
 
 Deployment hanya ke project yang Anda miliki/kelola; clone dan run tidak melakukan deploy otomatis.
 
@@ -587,12 +587,12 @@ Deployment hanya ke project yang Anda miliki/kelola; clone dan run tidak melakuk
 
 Upload foto aset memerlukan Cloudinary cloud name dan unsigned upload preset. Buat <code>config/dev.json</code> lokal (folder ini di-ignore Git):
 
-~~~json
+```json
 {
   "CLOUDINARY_CLOUD_NAME": "<YOUR_CLOUD_NAME>",
   "CLOUDINARY_UPLOAD_PRESET": "<YOUR_UNSIGNED_UPLOAD_PRESET>"
 }
-~~~
+```
 
 Batasi unsigned preset sesuai kebijakan layanan. **Jangan** menaruh Cloudinary API secret di aplikasi mobile. Source membatasi foto menjadi 5 MB dan JPG/JPEG/PNG/WEBP. Tanpa nilai konfigurasi, fitur selain upload tetap bisa digunakan.
 
@@ -600,18 +600,18 @@ Jangan commit <code>config/dev.json</code>, <code>.env*</code>, <code>docs/</cod
 
 ## Menjalankan Aplikasi
 
-~~~bash
+```bash
 flutter doctor
 flutter pub get
 flutter run --dart-define-from-file=config/dev.json
-~~~
+```
 
 Untuk memilih emulator/perangkat:
 
-~~~bash
+```bash
 flutter devices
 flutter run -d <DEVICE_ID> --dart-define-from-file=config/dev.json
-~~~
+```
 
 Akun sign-in harus dibuat pada Firebase Authentication dan memiliki dokumen <code>users/{uid}</code> sesuai role/status Rules. README tidak mempublikasikan akun/password demo.
 
@@ -619,18 +619,18 @@ Akun sign-in harus dibuat pada Firebase Authentication dan memiliki dokumen <cod
 
 Jalankan dari root:
 
-~~~bash
+```bash
 flutter analyze
 flutter test
-~~~
+```
 
 Test suite memakai Flutter Test, <code>bloc_test</code>, dan <code>mocktail</code>. Test otomatis bukan pengganti UAT kamera di perangkat, pemeriksaan Rules pada Firebase project, atau validasi signing release.
 
 ## Build APK
 
-~~~bash
+```bash
 flutter build apk --release --dart-define-from-file=config/dev.json
-~~~
+```
 
 APK dibuat di <code>build/app/outputs/flutter-apk/app-release.apk</code>. Gradle saat ini memakai debug signing config untuk build release. Hasil ini **bukan** APK untuk Play Store; siapkan release signing, application ID, versioning, pemeriksaan privacy/compliance, dan pengujian distribusi sebelum rilis publik.
 
