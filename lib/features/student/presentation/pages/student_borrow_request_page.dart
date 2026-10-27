@@ -166,7 +166,8 @@ class _StudentBorrowRequestView extends StatelessWidget {
           onSelected: cubit.setExpectedReturnDate,
         ),
         const SizedBox(height: 10),
-        TextField(
+        TextFormField(
+          initialValue: state.purpose,
           minLines: 3,
           maxLines: 4,
           maxLength: 300,
@@ -176,7 +177,8 @@ class _StudentBorrowRequestView extends StatelessWidget {
             'Contoh: Praktikum Jaringan',
           ),
         ),
-        TextField(
+        TextFormField(
+          initialValue: state.studentNote,
           minLines: 2,
           maxLines: 4,
           maxLength: 1000,
@@ -195,6 +197,13 @@ class _StudentBorrowRequestView extends StatelessWidget {
               fontSize: 11,
               fontWeight: FontWeight.w700,
             ),
+          ),
+        ],
+        if (state.draftSaved) ...[
+          const SizedBox(height: 8),
+          const Text(
+            'Draft disimpan di perangkat untuk akun ini. Ketersediaan akan divalidasi ulang saat dikirim.',
+            style: TextStyle(fontSize: 11, color: studentMuted),
           ),
         ],
         const SizedBox(height: 10),
@@ -217,6 +226,12 @@ class _StudentBorrowRequestView extends StatelessWidget {
               style: TextStyle(fontWeight: FontWeight.w900),
             ),
           ),
+        ),
+        const SizedBox(height: 8),
+        TextButton.icon(
+          onPressed: cubit.saveDraft,
+          icon: const Icon(Icons.save_outlined),
+          label: const Text('Simpan Draft di Perangkat'),
         ),
       ],
     );
@@ -271,6 +286,13 @@ class _StudentBorrowRequestView extends StatelessWidget {
             style: const TextStyle(color: studentPinkText),
           ),
         ],
+        if (state.draftSaved) ...[
+          const SizedBox(height: 8),
+          const Text(
+            'Disimpan di perangkat. Pengajuan final tetap memerlukan koneksi dan validasi terbaru.',
+            style: TextStyle(fontSize: 11, color: studentMuted),
+          ),
+        ],
         const SizedBox(height: 14),
         Row(
           children: [
@@ -304,6 +326,12 @@ class _StudentBorrowRequestView extends StatelessWidget {
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 6),
+        TextButton.icon(
+          onPressed: state.isSubmitting ? null : cubit.saveDraft,
+          icon: const Icon(Icons.save_outlined),
+          label: const Text('Simpan Draft di Perangkat'),
         ),
       ],
     );

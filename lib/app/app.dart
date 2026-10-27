@@ -1,8 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/connectivity/connectivity_cubit.dart';
+import '../core/connectivity/connectivity_service.dart';
+import '../core/connectivity/connectivity_state.dart';
+import '../core/connectivity/offline_banner.dart';
 import '../features/auth/data/auth_service.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
@@ -22,10 +27,20 @@ class _LabFlowAppState extends State<LabFlowApp> with WidgetsBindingObserver {
   Timer? _expiryTimer;
   bool _checkingSession = false;
   bool _verifyProfilePending = false;
+  late final ConnectivityCubit _connectivityCubit;
+  StreamSubscription<ConnectivityState>? _connectivitySubscription;
 
   @override
   void initState() {
     super.initState();
+    _connectivityCubit = ConnectivityCubit(PluginConnectivityService());
+    _connectivitySubscription = _connectivityCubit.stream.listen((state) {
+      if (state.status == ConnectivityStatus.networkAvailable &&
+          _isProtectedRoute) {
+        unawaited(_checkSession(verifyProfile: true));
+      }
+    });
+    unawaited(_connectivityCubit.start());
     _router = createAppRouter(initialLocation: widget.initialLocation);
     _router.routeInformationProvider.addListener(_onRouteChanged);
     WidgetsBinding.instance.addObserver(this);
@@ -91,16 +106,23 @@ class _LabFlowAppState extends State<LabFlowApp> with WidgetsBindingObserver {
     _router.routeInformationProvider.removeListener(_onRouteChanged);
     WidgetsBinding.instance.removeObserver(this);
     _router.dispose();
+    unawaited(_connectivitySubscription?.cancel());
+    _connectivityCubit.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp.router(
-      title: 'LabFlow',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      routerConfig: _router,
+    return BlocProvider.value(
+      value: _connectivityCubit,
+      child: MaterialApp.router(
+        title: 'LabFlow',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        routerConfig: _router,
+        builder: (context, child) =>
+            OfflineBanner(child: child ?? const SizedBox.shrink()),
+      ),
     );
   }
 }

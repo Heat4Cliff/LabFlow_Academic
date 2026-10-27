@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/connectivity/connectivity_cubit.dart';
+import '../../../../core/connectivity/connectivity_state.dart';
+import '../../../../shared/presentation/states/labflow_offline_empty_state.dart';
 import '../../data/student_service.dart';
 import '../../data/student_notification_service.dart';
 import '../../domain/student_models.dart';
@@ -52,9 +55,15 @@ class _StudentHomeView extends StatelessWidget {
 
             if (state.status == StudentLoadStatus.failure ||
                 state.data == null) {
-              return StudentErrorState(
-                message: state.errorMessage,
-                onRetry: context.read<StudentHomeCubit>().load,
+              return BlocBuilder<ConnectivityCubit, ConnectivityState>(
+                builder: (context, connection) => connection.isOffline
+                    ? LabFlowOfflineEmptyState(
+                        onRetry: context.read<StudentHomeCubit>().load,
+                      )
+                    : StudentErrorState(
+                        message: state.errorMessage,
+                        onRetry: context.read<StudentHomeCubit>().load,
+                      ),
               );
             }
 

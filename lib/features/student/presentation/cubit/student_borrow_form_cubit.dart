@@ -39,17 +39,31 @@ class StudentBorrowFormCubit extends Cubit<StudentBorrowFormState> {
       }
 
       final today = DateTime.now();
-      final borrowDate = DateTime(today.year, today.month, today.day);
-      final returnDate = borrowDate.add(const Duration(days: 1));
+      var borrowDate = DateTime(today.year, today.month, today.day);
+      var returnDate = borrowDate.add(const Duration(days: 1));
+      var quantity = 1;
+      var purpose = '';
+      var note = '';
+      final draft = await _service.loadBorrowDraft(assetId);
+      if (draft != null) {
+        borrowDate = draft.borrowDate;
+        returnDate = draft.returnDate;
+        quantity = draft.quantity.clamp(1, asset.stock);
+        purpose = draft.purpose;
+        note = draft.note;
+      }
 
       emit(
         StudentBorrowFormState(
           status: StudentLoadStatus.success,
           asset: asset,
           laboratory: laboratory,
-          quantity: 1,
+          quantity: quantity,
           borrowDate: borrowDate,
           expectedReturnDate: returnDate,
+          purpose: purpose,
+          studentNote: note,
+          draftSaved: draft != null,
         ),
       );
     } catch (error) {
@@ -68,7 +82,7 @@ class StudentBorrowFormCubit extends Cubit<StudentBorrowFormState> {
     final stock = state.asset?.stock ?? 1;
     final next = value.clamp(1, stock);
 
-    emit(state.copyWith(quantity: next, errorMessage: ''));
+    emit(state.copyWith(quantity: next, errorMessage: '', draftSaved: false));
   }
 
   void setBorrowDate(DateTime value) {
@@ -83,20 +97,53 @@ class StudentBorrowFormCubit extends Cubit<StudentBorrowFormState> {
         borrowDate: value,
         expectedReturnDate: returnDate,
         errorMessage: '',
+        draftSaved: false,
       ),
     );
   }
 
   void setExpectedReturnDate(DateTime value) {
-    emit(state.copyWith(expectedReturnDate: value, errorMessage: ''));
+    emit(
+      state.copyWith(
+        expectedReturnDate: value,
+        errorMessage: '',
+        draftSaved: false,
+      ),
+    );
   }
 
   void setPurpose(String value) {
-    emit(state.copyWith(purpose: value, errorMessage: ''));
+    emit(state.copyWith(purpose: value, errorMessage: '', draftSaved: false));
   }
 
   void setStudentNote(String value) {
-    emit(state.copyWith(studentNote: value, errorMessage: ''));
+    emit(
+      state.copyWith(studentNote: value, errorMessage: '', draftSaved: false),
+    );
+  }
+
+  Future<void> saveDraft() async {
+    final asset = state.asset;
+    final borrowDate = state.borrowDate;
+    final returnDate = state.expectedReturnDate;
+    if (asset == null || borrowDate == null || returnDate == null) return;
+    try {
+      await _service.saveBorrowDraft(
+        assetId: asset.id,
+        quantity: state.quantity,
+        borrowDate: borrowDate,
+        returnDate: returnDate,
+        purpose: state.purpose,
+        note: state.studentNote,
+      );
+      emit(state.copyWith(draftSaved: true, errorMessage: ''));
+    } catch (_) {
+      emit(
+        state.copyWith(
+          errorMessage: 'Draft tidak dapat disimpan di perangkat.',
+        ),
+      );
+    }
   }
 
   void review() {
@@ -142,19 +189,36 @@ class StudentBorrowFormCubit extends Cubit<StudentBorrowFormState> {
         purpose: state.purpose,
         studentNote: state.studentNote,
       );
+      await _service.removeBorrowDraft(asset.id);
 
       emit(
         state.copyWith(
           isSubmitting: false,
           step: StudentBorrowFormStep.success,
           result: result,
+          draftSaved: false,
           errorMessage: '',
         ),
       );
     } catch (error) {
+      var draftSaved = false;
+      try {
+        await _service.saveBorrowDraft(
+          assetId: asset.id,
+          quantity: state.quantity,
+          borrowDate: borrowDate,
+          returnDate: expectedReturnDate,
+          purpose: state.purpose,
+          note: state.studentNote,
+        );
+        draftSaved = true;
+      } catch (_) {
+        // Preserve the submission error if local storage is unavailable.
+      }
       emit(
         state.copyWith(
           isSubmitting: false,
+          draftSaved: draftSaved,
           errorMessage: error is StudentServiceException
               ? error.message
               : 'Pengajuan peminjaman gagal dikirim.',

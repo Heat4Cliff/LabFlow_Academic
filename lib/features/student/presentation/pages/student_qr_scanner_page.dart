@@ -109,13 +109,17 @@ class _StudentQrScannerPageState extends State<StudentQrScannerPage> {
         case StudentQrResolutionStatus.invalid:
           setState(() => _message = 'QR tidak dikenali sebagai aset LabFlow.');
         case StudentQrResolutionStatus.notFound:
-          setState(() => _message = 'Aset tidak ditemukan. Periksa kodenya.');
+          setState(
+            () => _message = 'Aset tidak ditemukan di data yang tersedia. Jika sedang offline, hubungkan internet atau muat aset ini ke cache terlebih dahulu.',
+          );
       }
     } on FirebaseException catch (error) {
       if (!mounted) return;
       setState(
         () => _message = error.code == 'permission-denied'
             ? 'Akses baca aset ditolak.'
+            : error.code == 'unavailable'
+            ? 'Aset ini belum tersedia di cache. Hubungkan internet lalu buka detail aset sekali sebelum memindainya offline.'
             : 'Gagal mencari aset. Periksa koneksi dan coba lagi.',
       );
     } catch (_) {

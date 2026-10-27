@@ -17,6 +17,7 @@ class StudentBorrowFormState {
     this.isSubmitting = false,
     this.errorMessage = '',
     this.result,
+    this.draftSaved = false,
   });
 
   final StudentLoadStatus status;
@@ -31,6 +32,7 @@ class StudentBorrowFormState {
   final bool isSubmitting;
   final String errorMessage;
   final StudentBorrowSubmissionResult? result;
+  final bool draftSaved;
 
   bool get canReview {
     final selectedAsset = asset;
@@ -58,6 +60,7 @@ class StudentBorrowFormState {
     bool? isSubmitting,
     String? errorMessage,
     StudentBorrowSubmissionResult? result,
+    bool? draftSaved,
   }) {
     return StudentBorrowFormState(
       status: status ?? this.status,
@@ -72,6 +75,7 @@ class StudentBorrowFormState {
       isSubmitting: isSubmitting ?? this.isSubmitting,
       errorMessage: errorMessage ?? this.errorMessage,
       result: result ?? this.result,
+      draftSaved: draftSaved ?? this.draftSaved,
     );
   }
 }

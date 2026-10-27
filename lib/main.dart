@@ -1,4 +1,5 @@
 import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import 'app/app.dart';
@@ -12,6 +13,12 @@ Future<void> main() async {
 
   /// Menghubungkan aplikasi Flutter dengan project Firebase.
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Native Android/iOS Firestore persistence is on by default; keep it explicit
+  // so offline cached reads and safe SDK writes remain enabled.
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+  );
 
   /// Mengecek status first-launch pada device.
   final hasSeenSplash = await AppPreferences.hasSeenSplash();

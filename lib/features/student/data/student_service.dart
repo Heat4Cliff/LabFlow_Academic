@@ -2,15 +2,21 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../auth/data/auth_service.dart';
+import '../../../core/offline/borrow_draft_store.dart';
 import '../domain/student_models.dart';
 
 class StudentService {
-  StudentService({FirebaseFirestore? firestore, FirebaseAuth? firebaseAuth})
-    : _firestore = firestore ?? FirebaseFirestore.instance,
-      _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance;
+  StudentService({
+    FirebaseFirestore? firestore,
+    FirebaseAuth? firebaseAuth,
+    BorrowDraftStore? draftStore,
+  }) : _firestore = firestore ?? FirebaseFirestore.instance,
+       _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance,
+       _draftStore = draftStore ?? SharedPreferencesBorrowDraftStore();
 
   final FirebaseFirestore _firestore;
   final FirebaseAuth _firebaseAuth;
+  final BorrowDraftStore _draftStore;
 
   String get _uid {
     final user = _firebaseAuth.currentUser;
@@ -21,6 +27,32 @@ class StudentService {
 
     return user.uid;
   }
+
+  Future<BorrowRequestDraft?> loadBorrowDraft(String assetId) =>
+      _draftStore.read(_uid, assetId);
+
+  Future<void> saveBorrowDraft({
+    required String assetId,
+    required int quantity,
+    required DateTime borrowDate,
+    required DateTime returnDate,
+    required String purpose,
+    required String note,
+  }) => _draftStore.write(
+    _uid,
+    BorrowRequestDraft(
+      assetId: assetId,
+      quantity: quantity,
+      borrowDate: borrowDate,
+      returnDate: returnDate,
+      purpose: purpose.trim(),
+      note: note.trim(),
+      updatedAt: DateTime.now().toUtc(),
+    ),
+  );
+
+  Future<void> removeBorrowDraft(String assetId) =>
+      _draftStore.remove(_uid, assetId);
 
   Future<StudentProfile> loadProfile() async {
     final uid = _uid;
@@ -150,7 +182,7 @@ class StudentService {
     final latestAssetSnapshot = await _firestore
         .collection('assets')
         .doc(asset.id)
-        .get();
+        .get(const GetOptions(source: Source.server));
 
     if (!latestAssetSnapshot.exists) {
       throw const StudentServiceException('Aset tidak ditemukan.');
@@ -170,7 +202,7 @@ class StudentService {
     final laboratorySnapshot = await _firestore
         .collection('laboratories')
         .doc(asset.labId)
-        .get();
+        .get(const GetOptions(source: Source.server));
     final laboratoryData = laboratorySnapshot.data();
 
     if (!laboratorySnapshot.exists ||
@@ -190,9 +222,7 @@ class StudentService {
     final requestNumber = 'BRW-${now.year}-$suffix';
     final itemReference = requestReference.collection('items').doc();
 
-    final batch = _firestore.batch();
-
-    batch.set(requestReference, {
+    final requestData = {
       'requestNumber': requestNumber,
       'studentId': uid,
       'labId': asset.labId,
@@ -206,21 +236,32 @@ class StudentService {
       'rejectionReason': null,
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
-    });
+    };
 
-    batch.set(itemReference, {
+    final itemData = {
       'itemId': asset.id,
       'itemName': latestAsset.name,
       'quantity': quantity,
       'requestedAssetId': asset.id,
-    });
+    };
 
     try {
-      await batch.commit();
+      // Firestore transactions require a server connection. This prevents the
+      // final borrowing request from becoming a blind offline queued write.
+      await _firestore.runTransaction((transaction) async {
+        transaction.set(requestReference, requestData);
+        transaction.set(itemReference, itemData);
+      });
     } on FirebaseException catch (error) {
       if (error.code == 'permission-denied') {
         throw const StudentServiceException(
           'Pengajuan ditolak oleh aturan keamanan. Muat ulang data lalu coba lagi.',
+        );
+      }
+
+      if (error.code == 'unavailable' || error.code == 'deadline-exceeded') {
+        throw const StudentServiceException(
+          'Koneksi internet diperlukan untuk mengirim pengajuan. Simpan sebagai draft lalu kirim setelah online.',
         );
       }
 

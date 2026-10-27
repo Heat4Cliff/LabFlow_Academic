@@ -655,14 +655,23 @@ Notifikasi tersedia sebagai **in-app realtime notification** dari Firestore, den
 
 ## Offline Behavior
 
-LabFlow adalah aplikasi **online-first**. Cache Firestore untuk data tertentu tidak menjadikan semua workflow siap offline. Login, perubahan data, assignment, verifikasi, dan sinkronisasi membutuhkan jaringan.
+LabFlow mendukung **cached reads dan operasi aman tertentu saat offline** melalui Firestore native persistence pada Android/iOS. Data yang pernah dibaca dapat tersedia dari cache; isinya dapat kedaluwarsa dan bukan bukti otorisasi server yang baru.
+
+- Data tersedia offline hanya jika sebelumnya telah dibaca dan masuk cache pada perangkat. Cache tidak mengunduh seluruh database.
+- Status jaringan di UI berasal dari interface jaringan dan tidak menjamin internet dapat dijangkau. Firestore tetap menentukan hasil operasi server.
+- Form borrowing dapat disimpan sebagai draft lokal yang diisolasi berdasarkan UID dan asset ID. Pengiriman final membaca aset dan lab dari server serta memakai transaksi online; draft tidak mengurangi stok.
+- Firestore transactions untuk borrowing, stok, maintenance, laporan administratif, dan membership tetap membutuhkan koneksi server.
+- Login baru, upload foto, serta mutasi administratif tetap membutuhkan koneksi. Firestore Rules tetap menjadi otoritas dan tidak dilonggarkan untuk mendukung offline.
+- Session tetap berakhir sesuai kebijakan satu jam. Offline mode tidak memperpanjang session atau membuat status akun terbaru tersedia.
+- Cache Firestore native dapat bertahan setelah logout. UI tetap melewati session/role gate; logout sebelum menyerahkan perangkat bersama.
+
+Firestore menyinkronkan safe writes lokal ketika koneksi kembali, tetapi UI belum menampilkan acknowledgement `Pending Sync`/`Synced` untuk setiap report, chat, profil, dan notifikasi. Jangan anggap operasi tersebut sudah tersimpan di cloud sampai server mengonfirmasinya.
 
 ## Known Limitations
 
 - Build/configuration yang ada berfokus pada Android.
 - Foto hanya tersedia untuk aset; report belum mendukung attachment foto.
 - Notifikasi masih in-app; FCM push belum diimplementasikan.
-- Tidak ada janji offline-first atau sinkronisasi semua perubahan offline.
 - APK release masih memakai debug signing config dan belum siap untuk distribusi store.
 - Repository tidak menyediakan pipeline CI/coverage untuk badge status.
 - UAT tetap perlu Firebase project dan perangkat/emulator yang dikonfigurasi.
