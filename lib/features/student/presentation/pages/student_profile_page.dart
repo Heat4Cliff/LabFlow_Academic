@@ -131,7 +131,16 @@ class _StudentProfileView extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 14),
-          _menu(Icons.manage_accounts_outlined, 'Edit Profil'),
+          _menu(
+            Icons.manage_accounts_outlined,
+            'Edit Profil',
+            onTap: () async {
+              final updated = await context.push<bool>('/student/profile/edit');
+              if (updated == true && context.mounted) {
+                await context.read<StudentProfileCubit>().load();
+              }
+            },
+          ),
           _menu(Icons.menu_book_outlined, 'Panduan Aplikasi'),
           _menu(Icons.tune_rounded, 'Pengaturan'),
           _menu(Icons.science_outlined, 'Tentang LabFlow'),
@@ -171,19 +180,22 @@ class _StudentProfileView extends StatelessWidget {
     );
   }
 
-  Widget _menu(IconData icon, String title) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: studentBorder)),
-      ),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: studentInk),
-          const SizedBox(width: 12),
-          Expanded(child: Text(title, style: const TextStyle(fontSize: 12))),
-          const Icon(Icons.chevron_right_rounded, size: 18),
-        ],
+  Widget _menu(IconData icon, String title, {VoidCallback? onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: studentBorder)),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: studentInk),
+            const SizedBox(width: 12),
+            Expanded(child: Text(title, style: const TextStyle(fontSize: 12))),
+            const Icon(Icons.chevron_right_rounded, size: 18),
+          ],
+        ),
       ),
     );
   }

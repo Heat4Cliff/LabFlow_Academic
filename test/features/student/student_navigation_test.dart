@@ -95,4 +95,109 @@ void main() {
       expect(find.text('Peminjaman aktif'), findsOneWidget);
     },
   );
+
+  testWidgets('report create success replaces form and back returns to list', (
+    tester,
+  ) async {
+    final router = _reportRouter('/student/reports');
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Buat Laporan'));
+    await tester.pumpAndSettle();
+    expect(find.text('Kirim Laporan'), findsOneWidget);
+
+    await tester.tap(find.text('Kirim Laporan'));
+    await tester.pumpAndSettle();
+    expect(find.text('report:report-1'), findsOneWidget);
+
+    await tester.tap(find.text('Kembali Detail'));
+    await tester.pumpAndSettle();
+    expect(find.text('Daftar Laporan'), findsOneWidget);
+    expect(find.text('Kirim Laporan'), findsNothing);
+  });
+
+  testWidgets('report opened from notification returns to notifications', (
+    tester,
+  ) async {
+    final router = _reportRouter('/student/notifications');
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Buka Notifikasi'));
+    await tester.pumpAndSettle();
+    expect(find.text('report:report-1'), findsOneWidget);
+
+    await tester.tap(find.text('Kembali Detail'));
+    await tester.pumpAndSettle();
+    expect(find.text('Daftar Notifikasi'), findsOneWidget);
+  });
+
+  testWidgets('direct report detail system back falls back to reports list', (
+    tester,
+  ) async {
+    final router = _reportRouter('/student/reports/report-1');
+    addTearDown(router.dispose);
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
+    await tester.pumpAndSettle();
+    expect(find.text('report:report-1'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Daftar Laporan'), findsOneWidget);
+  });
 }
+
+GoRouter _reportRouter(String initialLocation) => GoRouter(
+  initialLocation: initialLocation,
+  routes: [
+    GoRoute(
+      path: '/student/reports',
+      builder: (context, state) => Scaffold(
+        body: TextButton(
+          onPressed: () => context.push('/student/reports/create'),
+          child: const Text('Buat Laporan'),
+        ),
+        appBar: AppBar(title: const Text('Daftar Laporan')),
+      ),
+    ),
+    GoRoute(
+      path: '/student/reports/create',
+      builder: (context, state) => Scaffold(
+        body: TextButton(
+          onPressed: () => openCreatedStudentReport(context, 'report-1'),
+          child: const Text('Kirim Laporan'),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: '/student/reports/:reportId',
+      builder: (context, state) => StudentBackFallback(
+        fallbackPath: '/student/reports',
+        child: Scaffold(
+          body: Column(
+            children: [
+              Text('report:${state.pathParameters['reportId']}'),
+              TextButton(
+                onPressed: () => studentPopOrGo(context, '/student/reports'),
+                child: const Text('Kembali Detail'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+    GoRoute(
+      path: '/student/notifications',
+      builder: (context, state) => Scaffold(
+        appBar: AppBar(title: const Text('Daftar Notifikasi')),
+        body: TextButton(
+          onPressed: () => context.push('/student/reports/report-1'),
+          child: const Text('Buka Notifikasi'),
+        ),
+      ),
+    ),
+  ],
+);

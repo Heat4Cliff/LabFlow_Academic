@@ -6,6 +6,7 @@ import '../../../borrowing/domain/borrow_request.dart';
 import '../../data/student_borrowing_detail_service.dart';
 import '../cubit/student_borrowing_detail_cubit.dart';
 import '../cubit/student_borrowing_detail_state.dart';
+import '../student_navigation.dart';
 import '../widgets/student_ui.dart';
 
 class StudentBorrowingDetailPage extends StatelessWidget {
@@ -80,7 +81,7 @@ class _StudentBorrowingDetailView extends StatelessWidget {
             children: [
               StudentBackHeader(
                 title: 'Detail Peminjaman',
-                onBack: () => context.pop(),
+                onBack: () => studentPopOrGo(context, '/student/borrowing'),
               ),
               const SizedBox(height: 16),
               Container(

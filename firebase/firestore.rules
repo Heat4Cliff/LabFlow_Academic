@@ -521,8 +521,19 @@ service cloud.firestore {
           || isSuperadmin()
         );
 
-      allow create, update, delete:
-        if isSuperadmin();
+      allow create, delete: if isSuperadmin();
+
+      allow update: if isSuperadmin()
+        || (
+          isActive()
+          && request.auth.uid == userId
+          && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['fullName'])
+          && request.resource.data.fullName is string
+          && request.resource.data.fullName.size() > 0
+          && request.resource.data.fullName.size() <= 100
+          && request.resource.data.fullName.matches('.*\\S.*')
+        );
     }
 
 

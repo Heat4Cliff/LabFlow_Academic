@@ -183,11 +183,13 @@ class _StudentEquipmentViewState extends State<_StudentEquipmentView> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: assets.length,
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 crossAxisSpacing: 10,
                 mainAxisSpacing: 10,
-                childAspectRatio: .70,
+                childAspectRatio: studentAssetGridAspectRatio(
+                  MediaQuery.textScalerOf(context).scale(1),
+                ),
               ),
               itemBuilder: (context, index) {
                 final asset = assets[index];
@@ -212,21 +214,27 @@ class _StudentEquipmentViewState extends State<_StudentEquipmentView> {
             ),
           if (!_grid && assets.isNotEmpty) ...[
             const SizedBox(height: 4),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: () => _manualCode(context, state.assets),
-                style: FilledButton.styleFrom(
-                  backgroundColor: studentLime,
-                  foregroundColor: studentInk,
-                  shape: const StadiumBorder(),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => _manualCode(context, state.assets),
+                  child: const Text('Input kode'),
                 ),
-                icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
-                label: const Text(
-                  'Scan QR',
-                  style: TextStyle(fontWeight: FontWeight.w900),
+                FilledButton.icon(
+                  onPressed: () => context.push('/student/scanner'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: studentLime,
+                    foregroundColor: studentInk,
+                    shape: const StadiumBorder(),
+                  ),
+                  icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                  label: const Text(
+                    'Scan QR',
+                    style: TextStyle(fontWeight: FontWeight.w900),
+                  ),
                 ),
-              ),
+              ],
             ),
           ],
         ],

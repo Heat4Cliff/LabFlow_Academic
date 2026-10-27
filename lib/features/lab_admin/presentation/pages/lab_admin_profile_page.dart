@@ -97,6 +97,19 @@ class _LabAdminProfileView extends StatelessWidget {
           const SizedBox(height: 18),
           _profileHero(profile),
           const SizedBox(height: 16),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final updated = await context.push<bool>(
+                '/lab-admin/profile/edit',
+              );
+              if (updated == true && context.mounted) {
+                await context.read<LabAdminProfileCubit>().load();
+              }
+            },
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Edit Profil'),
+          ),
+          const SizedBox(height: 16),
           _sectionTitle('Informasi Akun'),
           const SizedBox(height: 10),
           _infoCard(

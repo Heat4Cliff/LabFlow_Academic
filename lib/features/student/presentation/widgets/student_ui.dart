@@ -649,3 +649,8 @@ String studentFormatDateTime(DateTime value) {
   final minute = value.minute.toString().padLeft(2, '0');
   return '${studentFormatDate(value)} · $hour.$minute';
 }
+
+double studentAssetGridAspectRatio(double textScale) {
+  final extra = (textScale - 1).clamp(0.0, 1.0);
+  return .70 / (1 + extra * .6);
+}

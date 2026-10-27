@@ -139,6 +139,19 @@ class _SuperadminProfilePageState extends State<_SuperadminProfileView> {
           const SizedBox(height: 28),
           _buildIdentityCard(profile),
           const SizedBox(height: 18),
+          OutlinedButton.icon(
+            onPressed: () async {
+              final updated = await context.push<bool>(
+                '/superadmin/profile/edit',
+              );
+              if (updated == true && mounted) {
+                await context.read<SuperadminProfileCubit>().load();
+              }
+            },
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('Edit Profil'),
+          ),
+          const SizedBox(height: 18),
           _buildAccountInformation(profile),
           const SizedBox(height: 22),
           _buildLogoutButton(),

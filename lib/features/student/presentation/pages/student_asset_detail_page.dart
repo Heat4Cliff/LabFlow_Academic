@@ -80,7 +80,7 @@ class _StudentAssetDetailPageState extends State<StudentAssetDetailPage> {
         children: [
           StudentBackHeader(
             title: 'Detail Aset',
-            onBack: () => context.pop(),
+            onBack: () => studentPopOrGo(context, '/student/assets'),
             trailing: Container(
               width: 42,
               height: 42,

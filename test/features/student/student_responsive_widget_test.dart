@@ -22,35 +22,43 @@ void main() {
     );
 
     for (final viewportWidth in [360.0, 390.0, 412.0]) {
-      tester.view.physicalSize = Size(viewportWidth, 844);
-      tester.view.devicePixelRatio = 1;
+      for (final textScale in [1.0, 1.15, 1.30]) {
+        tester.view.physicalSize = Size(viewportWidth, 844);
+        tester.view.devicePixelRatio = 1;
 
-      final cardWidth = (viewportWidth - 36 - 10) / 2;
-      final cardHeight = cardWidth / .70;
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Center(
-              child: SizedBox(
-                width: cardWidth,
-                height: cardHeight,
-                child: const StudentAssetCard(
-                  asset: asset,
-                  labName: 'Laboratorium Biologi dan Mikroskopi',
-                  onTap: _noop,
+        final cardWidth = (viewportWidth - 36 - 10) / 2;
+        final cardHeight = cardWidth / studentAssetGridAspectRatio(textScale);
+        await tester.pumpWidget(
+          MaterialApp(
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(textScale)),
+              child: child!,
+            ),
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: cardWidth,
+                  height: cardHeight,
+                  child: const StudentAssetCard(
+                    asset: asset,
+                    labName: 'Laboratorium Biologi dan Mikroskopi',
+                    onTap: _noop,
+                  ),
                 ),
               ),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      expect(
-        tester.takeException(),
-        isNull,
-        reason: 'Grid card should fit at $viewportWidth dp.',
-      );
+        expect(
+          tester.takeException(),
+          isNull,
+          reason:
+              'Grid card should fit at $viewportWidth dp, scale $textScale.',
+        );
+      }
     }
 
     addTearDown(() {

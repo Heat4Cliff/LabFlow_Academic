@@ -6,6 +6,7 @@ import '../../data/student_service.dart';
 import '../cubit/student_borrow_form_cubit.dart';
 import '../cubit/student_borrow_form_state.dart';
 import '../cubit/student_data_state.dart';
+import '../student_navigation.dart';
 import '../widgets/student_ui.dart';
 
 class StudentBorrowRequestPage extends StatelessWidget {
@@ -71,7 +72,10 @@ class _StudentBorrowRequestView extends StatelessWidget {
       children: [
         StudentBackHeader(
           title: 'Ajukan Peminjaman',
-          onBack: () => context.pop(),
+          onBack: () => studentPopOrGo(
+            context,
+            '/student/assets/${Uri.encodeComponent(asset.id)}',
+          ),
         ),
         const SizedBox(height: 16),
         Container(

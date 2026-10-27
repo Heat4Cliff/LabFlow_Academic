@@ -92,8 +92,8 @@ class _StudentHomeView extends StatelessWidget {
           Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 50,
+                height: 50,
                 decoration: BoxDecoration(
                   color: studentSoftLime,
                   borderRadius: BorderRadius.circular(999),
@@ -103,7 +103,7 @@ class _StudentHomeView extends StatelessWidget {
                 child: Text(
                   data.profile.initials,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 16,
                     fontWeight: FontWeight.w900,
                     color: studentInk,
                   ),
@@ -116,8 +116,10 @@ class _StudentHomeView extends StatelessWidget {
                   children: [
                     Text(
                       'Halo, ${data.profile.firstName} 👋',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 21,
+                        fontSize: 24,
                         fontWeight: FontWeight.w900,
                         color: studentInk,
                       ),
@@ -125,7 +127,8 @@ class _StudentHomeView extends StatelessWidget {
                     const SizedBox(height: 3),
                     const Text(
                       'Siap menggunakan laboratorium hari ini?',
-                      style: TextStyle(fontSize: 11, color: studentMuted),
+                      maxLines: 2,
+                      style: TextStyle(fontSize: 12, color: studentMuted),
                     ),
                   ],
                 ),
@@ -144,8 +147,8 @@ class _StudentHomeView extends StatelessWidget {
                     ),
                     borderRadius: BorderRadius.circular(999),
                     child: SizedBox(
-                      width: 42,
-                      height: 42,
+                      width: 48,
+                      height: 48,
                       child: Stack(
                         clipBehavior: Clip.none,
                         children: [
@@ -155,7 +158,10 @@ class _StudentHomeView extends StatelessWidget {
                                 color: Colors.white,
                                 shape: BoxShape.circle,
                               ),
-                              child: Icon(Icons.notifications_none_rounded),
+                              child: Icon(
+                                Icons.notifications_none_rounded,
+                                size: 27,
+                              ),
                             ),
                           ),
                           if (badge != null)
@@ -200,7 +206,7 @@ class _StudentHomeView extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Container(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(22),
             decoration: BoxDecoration(
               color: studentInk,
               borderRadius: BorderRadius.circular(24),
@@ -214,7 +220,7 @@ class _StudentHomeView extends StatelessWidget {
                       const Text(
                         'Pinjaman Aktif',
                         style: TextStyle(
-                          fontSize: 12,
+                          fontSize: 14,
                           color: Color(0xFFD4D8CE),
                         ),
                       ),
@@ -222,7 +228,7 @@ class _StudentHomeView extends StatelessWidget {
                       Text(
                         '$activeBorrowing',
                         style: const TextStyle(
-                          fontSize: 44,
+                          fontSize: 52,
                           height: 1,
                           fontWeight: FontWeight.w900,
                           color: studentLime,
@@ -232,7 +238,7 @@ class _StudentHomeView extends StatelessWidget {
                       Text(
                         '$pendingBorrowing Menunggu Persetujuan',
                         style: const TextStyle(
-                          fontSize: 10,
+                          fontSize: 12,
                           color: Color(0xFFD4D8CE),
                         ),
                       ),
@@ -240,8 +246,8 @@ class _StudentHomeView extends StatelessWidget {
                   ),
                 ),
                 Container(
-                  width: 76,
-                  height: 76,
+                  width: 82,
+                  height: 82,
                   decoration: const BoxDecoration(
                     color: studentLime,
                     shape: BoxShape.circle,
@@ -249,20 +255,20 @@ class _StudentHomeView extends StatelessWidget {
                   child: const Icon(
                     Icons.handshake_outlined,
                     color: studentInk,
-                    size: 34,
+                    size: 38,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _quickAction(
                 icon: Icons.qr_code_scanner_rounded,
                 label: 'Scan QR',
-                onTap: () => context.go('/student/assets'),
+                onTap: () => context.push('/student/scanner'),
               ),
               _quickAction(
                 icon: Icons.search_rounded,
@@ -281,14 +287,14 @@ class _StudentHomeView extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           Row(
             children: [
               const Expanded(
                 child: Text(
                   'Aktivitas Terbaru',
                   style: TextStyle(
-                    fontSize: 16,
+                    fontSize: 19,
                     fontWeight: FontWeight.w900,
                     color: studentInk,
                   ),
@@ -309,7 +315,7 @@ class _StudentHomeView extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 12,
-                    vertical: 10,
+                    vertical: 13,
                   ),
                   decoration: BoxDecoration(
                     color: Colors.white,
@@ -318,13 +324,13 @@ class _StudentHomeView extends StatelessWidget {
                   child: Row(
                     children: [
                       Container(
-                        width: 40,
-                        height: 40,
+                        width: 44,
+                        height: 44,
                         decoration: BoxDecoration(
                           color: studentSoftLime,
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Icon(Icons.inventory_2_outlined, size: 19),
+                        child: const Icon(Icons.inventory_2_outlined, size: 22),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -336,7 +342,7 @@ class _StudentHomeView extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 12,
+                                fontSize: 14,
                                 fontWeight: FontWeight.w900,
                               ),
                             ),
@@ -346,7 +352,7 @@ class _StudentHomeView extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                fontSize: 9,
+                                fontSize: 11,
                                 color: studentMuted,
                               ),
                             ),
@@ -366,7 +372,7 @@ class _StudentHomeView extends StatelessWidget {
           const Text(
             'Informasi Laboratorium',
             style: TextStyle(
-              fontSize: 16,
+              fontSize: 19,
               fontWeight: FontWeight.w900,
               color: studentInk,
             ),
@@ -390,7 +396,7 @@ class _StudentHomeView extends StatelessWidget {
                         Text(
                           data.laboratories.first.name,
                           style: const TextStyle(
-                            fontSize: 12,
+                            fontSize: 14,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
@@ -398,7 +404,7 @@ class _StudentHomeView extends StatelessWidget {
                         Text(
                           '${data.laboratories.first.location} · 08.00–16.00',
                           style: const TextStyle(
-                            fontSize: 9,
+                            fontSize: 11,
                             color: studentMuted,
                           ),
                         ),
@@ -426,23 +432,23 @@ class _StudentHomeView extends StatelessWidget {
         child: Column(
           children: [
             Container(
-              width: 48,
-              height: 48,
+              width: 58,
+              height: 58,
               decoration: BoxDecoration(
                 color: studentSoftLime,
                 shape: BoxShape.circle,
                 border: Border.all(color: studentBorder),
               ),
-              child: Icon(icon, size: 19, color: studentInk),
+              child: Icon(icon, size: 24, color: studentInk),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             Text(
               label,
               textAlign: TextAlign.center,
               maxLines: 2,
               style: const TextStyle(
-                fontSize: 8,
-                height: 1.15,
+                fontSize: 11,
+                height: 1.2,
                 fontWeight: FontWeight.w800,
               ),
             ),

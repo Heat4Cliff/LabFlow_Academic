@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../shared/presentation/navigation/labflow_back_fallback.dart';
+
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/widgets/labflow_account_status_gate.dart';
 import '../../features/borrowing/presentation/pages/admin_borrow_request_detail_page.dart';
@@ -20,6 +22,7 @@ import '../../features/maintenance/presentation/pages/create_maintenance_page.da
 import '../../features/maintenance/presentation/pages/maintenance_detail_page.dart';
 import '../../features/maintenance/presentation/pages/maintenance_list_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_page.dart';
+import '../../features/profile/presentation/pages/profile_edit_page.dart';
 import '../../features/reporting/presentation/pages/admin_report_detail_page.dart';
 import '../../features/reporting/presentation/pages/admin_report_list_page.dart';
 import '../../features/splash/presentation/pages/splash_page.dart';
@@ -30,6 +33,7 @@ import '../../features/student/presentation/pages/student_borrowing_detail_page.
 import '../../features/student/presentation/pages/student_borrow_request_page.dart';
 import '../../features/student/presentation/pages/student_equipment_page.dart';
 import '../../features/student/presentation/pages/student_profile_page.dart';
+import '../../features/student/presentation/pages/student_qr_scanner_page.dart';
 import '../../features/student/presentation/pages/student_reports_page.dart';
 import '../../features/student/presentation/pages/student_report_detail_page.dart';
 import '../../features/student/presentation/pages/student_report_create_page.dart';
@@ -163,6 +167,13 @@ GoRouter createAppRouter({required String initialLocation}) {
           );
         },
       ),
+      GoRoute(
+        path: '/superadmin/profile/edit',
+        builder: (context, state) => const LabFlowAccountStatusGate(
+          requiredRole: 'superadmin',
+          child: ProfileEditPage(returnPath: '/superadmin/profile'),
+        ),
+      ),
 
       /// Area Student.
       GoRoute(
@@ -184,13 +195,23 @@ GoRouter createAppRouter({required String initialLocation}) {
         },
       ),
       GoRoute(
+        path: '/student/scanner',
+        builder: (context, state) => const LabFlowAccountStatusGate(
+          requiredRole: 'student',
+          child: StudentQrScannerPage(),
+        ),
+      ),
+      GoRoute(
         path: '/student/assets/:assetId',
         builder: (context, state) {
           final assetId = state.pathParameters['assetId']!;
 
           return LabFlowAccountStatusGate(
             requiredRole: 'student',
-            child: StudentAssetDetailPage(assetId: assetId),
+            child: LabFlowBackFallback(
+              fallbackPath: '/student/assets',
+              child: StudentAssetDetailPage(assetId: assetId),
+            ),
           );
         },
       ),
@@ -216,7 +237,10 @@ GoRouter createAppRouter({required String initialLocation}) {
 
           return LabFlowAccountStatusGate(
             requiredRole: 'student',
-            child: StudentBorrowRequestPage(assetId: assetId),
+            child: LabFlowBackFallback(
+              fallbackPath: '/student/assets/${Uri.encodeComponent(assetId)}',
+              child: StudentBorrowRequestPage(assetId: assetId),
+            ),
           );
         },
       ),
@@ -227,7 +251,10 @@ GoRouter createAppRouter({required String initialLocation}) {
 
           return LabFlowAccountStatusGate(
             requiredRole: 'student',
-            child: StudentBorrowingDetailPage(requestId: requestId),
+            child: LabFlowBackFallback(
+              fallbackPath: '/student/borrowing',
+              child: StudentBorrowingDetailPage(requestId: requestId),
+            ),
           );
         },
       ),
@@ -244,7 +271,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         path: '/student/reports/create',
         builder: (context, state) => const LabFlowAccountStatusGate(
           requiredRole: 'student',
-          child: StudentReportCreatePage(),
+          child: LabFlowBackFallback(
+            fallbackPath: '/student/reports',
+            child: StudentReportCreatePage(),
+          ),
         ),
       ),
       GoRoute(
@@ -266,6 +296,13 @@ GoRouter createAppRouter({required String initialLocation}) {
             child: StudentProfilePage(),
           );
         },
+      ),
+      GoRoute(
+        path: '/student/profile/edit',
+        builder: (context, state) => const LabFlowAccountStatusGate(
+          requiredRole: 'student',
+          child: ProfileEditPage(returnPath: '/student/profile'),
+        ),
       ),
 
       GoRoute(
@@ -302,6 +339,13 @@ GoRouter createAppRouter({required String initialLocation}) {
           );
         },
       ),
+      GoRoute(
+        path: '/lab-admin/profile/edit',
+        builder: (context, state) => const LabFlowAccountStatusGate(
+          requiredRole: 'lab_admin',
+          child: ProfileEditPage(returnPath: '/lab-admin/profile'),
+        ),
+      ),
 
       /// Daftar permintaan peminjaman.
       GoRoute(
@@ -322,7 +366,10 @@ GoRouter createAppRouter({required String initialLocation}) {
 
           return LabFlowAccountStatusGate(
             requiredRole: 'lab_admin',
-            child: AdminBorrowRequestDetailPage(requestId: requestId),
+            child: LabFlowBackFallback(
+              fallbackPath: '/lab-admin/borrowing',
+              child: AdminBorrowRequestDetailPage(requestId: requestId),
+            ),
           );
         },
       ),
@@ -335,7 +382,11 @@ GoRouter createAppRouter({required String initialLocation}) {
 
           return LabFlowAccountStatusGate(
             requiredRole: 'lab_admin',
-            child: AssetAssignmentPage(requestId: requestId),
+            child: LabFlowBackFallback(
+              fallbackPath:
+                  '/lab-admin/borrowing/${Uri.encodeComponent(requestId)}',
+              child: AssetAssignmentPage(requestId: requestId),
+            ),
           );
         },
       ),
@@ -348,7 +399,11 @@ GoRouter createAppRouter({required String initialLocation}) {
 
           return LabFlowAccountStatusGate(
             requiredRole: 'lab_admin',
-            child: PickupVerificationPage(requestId: requestId),
+            child: LabFlowBackFallback(
+              fallbackPath:
+                  '/lab-admin/borrowing/${Uri.encodeComponent(requestId)}',
+              child: PickupVerificationPage(requestId: requestId),
+            ),
           );
         },
       ),
@@ -361,7 +416,11 @@ GoRouter createAppRouter({required String initialLocation}) {
 
           return LabFlowAccountStatusGate(
             requiredRole: 'lab_admin',
-            child: ReturnVerificationPage(requestId: requestId),
+            child: LabFlowBackFallback(
+              fallbackPath:
+                  '/lab-admin/borrowing/${Uri.encodeComponent(requestId)}',
+              child: ReturnVerificationPage(requestId: requestId),
+            ),
           );
         },
       ),
@@ -374,7 +433,11 @@ GoRouter createAppRouter({required String initialLocation}) {
 
           return LabFlowAccountStatusGate(
             requiredRole: 'lab_admin',
-            child: ReturnConditionPage(requestId: requestId),
+            child: LabFlowBackFallback(
+              fallbackPath:
+                  '/lab-admin/borrowing/${Uri.encodeComponent(requestId)}',
+              child: ReturnConditionPage(requestId: requestId),
+            ),
           );
         },
       ),
@@ -399,12 +462,15 @@ GoRouter createAppRouter({required String initialLocation}) {
 
           return LabFlowAccountStatusGate(
             requiredRole: 'lab_admin',
-            child: CreateMaintenancePage(
-              laboratoryId: labId,
-              initialAssetId: assetId,
-              sourceType: reportId == null ? 'manual' : 'report',
-              sourceId: reportId,
-              initialDescription: description,
+            child: LabFlowBackFallback(
+              fallbackPath: '/lab-admin/maintenance',
+              child: CreateMaintenancePage(
+                laboratoryId: labId,
+                initialAssetId: assetId,
+                sourceType: reportId == null ? 'manual' : 'report',
+                sourceId: reportId,
+                initialDescription: description,
+              ),
             ),
           );
         },
@@ -416,7 +482,10 @@ GoRouter createAppRouter({required String initialLocation}) {
 
           return LabFlowAccountStatusGate(
             requiredRole: 'lab_admin',
-            child: MaintenanceDetailPage(maintenanceId: maintenanceId),
+            child: LabFlowBackFallback(
+              fallbackPath: '/lab-admin/maintenance',
+              child: MaintenanceDetailPage(maintenanceId: maintenanceId),
+            ),
           );
         },
       ),
@@ -438,7 +507,10 @@ GoRouter createAppRouter({required String initialLocation}) {
 
           return LabFlowAccountStatusGate(
             requiredRole: 'lab_admin',
-            child: AdminReportDetailPage(reportId: reportId),
+            child: LabFlowBackFallback(
+              fallbackPath: '/lab-admin/reports',
+              child: AdminReportDetailPage(reportId: reportId),
+            ),
           );
         },
       ),
@@ -458,7 +530,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         builder: (context, state) {
           return const LabFlowAccountStatusGate(
             requiredRole: 'lab_admin',
-            child: CreateAssetPage(),
+            child: LabFlowBackFallback(
+              fallbackPath: '/lab-admin/assets',
+              child: CreateAssetPage(),
+            ),
           );
         },
       ),
@@ -469,7 +544,10 @@ GoRouter createAppRouter({required String initialLocation}) {
 
           return LabFlowAccountStatusGate(
             requiredRole: 'lab_admin',
-            child: AssetDetailPage(assetId: assetId),
+            child: LabFlowBackFallback(
+              fallbackPath: '/lab-admin/assets',
+              child: AssetDetailPage(assetId: assetId),
+            ),
           );
         },
       ),
@@ -480,7 +558,10 @@ GoRouter createAppRouter({required String initialLocation}) {
 
           return LabFlowAccountStatusGate(
             requiredRole: 'lab_admin',
-            child: EditAssetPage(assetId: assetId),
+            child: LabFlowBackFallback(
+              fallbackPath: '/lab-admin/assets/${Uri.encodeComponent(assetId)}',
+              child: EditAssetPage(assetId: assetId),
+            ),
           );
         },
       ),

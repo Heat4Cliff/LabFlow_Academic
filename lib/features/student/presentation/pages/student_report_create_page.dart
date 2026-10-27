@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../data/student_report_service.dart';
 import '../cubit/student_report_create_cubit.dart';
 import '../cubit/student_report_create_state.dart';
+import '../student_navigation.dart';
 import '../widgets/student_ui.dart';
 
 class StudentReportCreatePage extends StatelessWidget {
@@ -38,7 +38,7 @@ class _StudentReportCreateView extends StatelessWidget {
       listener: (context, state) {
         if (state.status == StudentReportCreateStatus.success &&
             state.reportId != null) {
-          context.go('/student/reports/${state.reportId}');
+          openCreatedStudentReport(context, state.reportId!);
         }
       },
       child: Scaffold(
@@ -73,7 +73,10 @@ class _StudentReportCreateView extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
       children: [
-        StudentBackHeader(title: 'Buat Laporan', onBack: () => context.pop()),
+        StudentBackHeader(
+          title: 'Buat Laporan',
+          onBack: () => studentPopOrGo(context, '/student/reports'),
+        ),
         const SizedBox(height: 16),
         DropdownButtonFormField<String>(
           initialValue: state.category,
@@ -177,13 +180,13 @@ class _StudentReportCreateView extends StatelessWidget {
           ),
           child: const Row(
             children: [
-              Icon(Icons.add_photo_alternate_outlined, size: 20),
+              Icon(Icons.image_not_supported_outlined, size: 20),
               SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'Lampiran (opsional)\nTambah foto · JPG, PNG · maks. 5 MB',
+                  'Lampiran foto belum tersedia pada versi ini.',
                   style: TextStyle(
-                    fontSize: 10,
+                    fontSize: 12,
                     height: 1.45,
                     color: studentMuted,
                   ),

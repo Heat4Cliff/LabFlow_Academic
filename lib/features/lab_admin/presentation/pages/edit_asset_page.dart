@@ -1,6 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+
+import '../../../../shared/presentation/navigation/labflow_back_fallback.dart';
+
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -341,6 +344,9 @@ class _EditAssetPageState extends State<EditAssetPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F9EF),
       appBar: AppBar(
+        leading: BackButton(
+          onPressed: () => popOrGo(context, '/lab-admin/assets'),
+        ),
         backgroundColor: const Color(0xFFF6F9EF),
         elevation: 0,
         surfaceTintColor: Colors.transparent,

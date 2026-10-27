@@ -321,7 +321,7 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 18, 20, 38),
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 38),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -334,7 +334,7 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
                       const Text(
                         'Lab Admin',
                         style: TextStyle(
-                          fontSize: 28,
+                          fontSize: 30,
                           height: 1.05,
                           fontWeight: FontWeight.w900,
                           letterSpacing: -0.8,
@@ -348,15 +348,15 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
                           selectedLaboratory.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12, color: _muted),
+                          style: const TextStyle(fontSize: 14, color: _muted),
                         ),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  width: 44,
-                  height: 44,
+                  width: 48,
+                  height: 48,
                   decoration: const BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
@@ -368,7 +368,7 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
             const SizedBox(height: 18),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(22),
               decoration: BoxDecoration(
                 color: _lime,
                 borderRadius: BorderRadius.circular(26),
@@ -381,13 +381,13 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
                       children: [
                         const Text(
                           'Total Aset',
-                          style: TextStyle(fontSize: 12, color: _ink),
+                          style: TextStyle(fontSize: 14, color: _ink),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           '$total',
                           style: const TextStyle(
-                            fontSize: 47,
+                            fontSize: 54,
                             height: 1,
                             fontWeight: FontWeight.w900,
                             color: _ink,
@@ -530,13 +530,17 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
         Text(
           value,
           style: const TextStyle(
-            fontSize: 18,
+            fontSize: 21,
             fontWeight: FontWeight.w900,
             color: _ink,
           ),
         ),
         const SizedBox(height: 2),
-        Text(label, style: const TextStyle(fontSize: 10, color: _ink)),
+        Text(
+          label,
+          maxLines: 2,
+          style: const TextStyle(fontSize: 11, color: _ink),
+        ),
       ],
     );
   }
@@ -553,19 +557,19 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(14),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 13),
+        padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: const BoxDecoration(
           border: Border(bottom: BorderSide(color: _line)),
         ),
         child: Row(
           children: [
-            Icon(icon, size: 21, color: _ink),
+            Icon(icon, size: 24, color: _ink),
             const SizedBox(width: 11),
             Expanded(
               child: Text(
                 title,
                 style: const TextStyle(
-                  fontSize: 13,
+                  fontSize: 14,
                   fontWeight: FontWeight.w800,
                   color: _ink,
                 ),
@@ -580,7 +584,7 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
               child: Text(
                 badge,
                 style: TextStyle(
-                  fontSize: 9,
+                  fontSize: 11,
                   fontWeight: FontWeight.w800,
                   color: badgeText,
                 ),
@@ -605,8 +609,8 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
         borderRadius: BorderRadius.circular(18),
         onTap: onTap,
         child: Container(
-          constraints: const BoxConstraints(minHeight: 92),
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+          constraints: const BoxConstraints(minHeight: 108),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: _line),
@@ -618,13 +622,13 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
                 clipBehavior: Clip.none,
                 children: [
                   Container(
-                    width: 42,
-                    height: 42,
+                    width: 48,
+                    height: 48,
                     decoration: const BoxDecoration(
                       color: _softLime,
                       shape: BoxShape.circle,
                     ),
-                    child: Icon(icon, size: 21, color: _ink),
+                    child: Icon(icon, size: 24, color: _ink),
                   ),
                   if (badge != null)
                     Positioned(
@@ -655,8 +659,10 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
               Text(
                 label,
                 textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   height: 1.15,
                   fontWeight: FontWeight.w700,
                   color: _ink,

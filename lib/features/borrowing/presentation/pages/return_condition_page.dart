@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../../../shared/presentation/navigation/labflow_back_fallback.dart';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -68,6 +71,9 @@ class _ReturnConditionView extends StatelessWidget {
         return Scaffold(
           backgroundColor: const Color(0xFFF6F9EF),
           appBar: AppBar(
+            leading: BackButton(
+              onPressed: () => popOrGo(context, '/lab-admin/borrowing'),
+            ),
             backgroundColor: const Color(0xFFF6F9EF),
             surfaceTintColor: Colors.transparent,
             elevation: 0,

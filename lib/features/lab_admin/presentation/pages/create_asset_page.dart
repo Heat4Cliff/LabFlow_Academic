@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+
+import '../../../../shared/presentation/navigation/labflow_back_fallback.dart';
+
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -261,6 +264,9 @@ class _CreateAssetPageState extends State<CreateAssetPage> {
       backgroundColor: const Color(0xFFF6F9EF),
 
       appBar: AppBar(
+        leading: BackButton(
+          onPressed: () => popOrGo(context, '/lab-admin/assets'),
+        ),
         backgroundColor: const Color(0xFFF6F9EF),
 
         surfaceTintColor: Colors.transparent,

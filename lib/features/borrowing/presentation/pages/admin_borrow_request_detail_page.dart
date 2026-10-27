@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../shared/presentation/navigation/labflow_back_fallback.dart';
+
 import '../../../../shared/presentation/notifications/labflow_notification.dart';
 
 import '../../../../shared/presentation/states/labflow_connection_error_state.dart';
@@ -93,6 +95,9 @@ class _AdminBorrowRequestDetailView extends StatelessWidget {
           backgroundColor: const Color(0xFFF6F9EF),
 
           appBar: AppBar(
+            leading: BackButton(
+              onPressed: () => popOrGo(context, '/lab-admin/borrowing'),
+            ),
             backgroundColor: const Color(0xFFF6F9EF),
 
             surfaceTintColor: Colors.transparent,
