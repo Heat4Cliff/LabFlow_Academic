@@ -436,7 +436,7 @@ sequenceDiagram
     actor Admin as Lab Admin
     Student->>App: Pilih aset, jumlah, tanggal, tujuan
     App->>DB: Buat request pending dan item
-    DB-->>App: Simpan tanpa mengurangi stok
+    DB->>App: Simpan tanpa mengurangi stok
     Admin->>App: Setujui atau tolak
     App->>DB: Update status request
     Admin->>App: Tetapkan aset
@@ -445,7 +445,7 @@ sequenceDiagram
     App->>DB: Set status active
     Admin->>App: Periksa return dan kondisi
     App->>DB: Set returned; perbarui stok/kondisi/maintenance
-    App-->>Student: Tampilkan notifikasi status
+    App->>Student: Tampilkan notifikasi status
 ~~~
 
 ### Borrowing lifecycle
@@ -483,7 +483,7 @@ sequenceDiagram
     Student->>App: Kirim pesan report
     Admin->>App: Balas dan lanjutkan tindak lanjut
     App->>DB: Simpan messages dan notification
-    App-->>Student: Tampilkan status/pesan terbaru
+    App->>Student: Tampilkan status/pesan terbaru
 ~~~
 
 ~~~mermaid
