@@ -68,7 +68,10 @@ class _ProfileEditViewState extends State<_ProfileEditView> {
         backgroundColor: const Color(0xFFF6F9EF),
         appBar: AppBar(
           backgroundColor: const Color(0xFFF6F9EF),
-          title: const Text('Edit Profil'),
+          title: const Text(
+            'Edit Profil',
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+          ),
           leading: IconButton(
             tooltip: 'Kembali',
             onPressed: _back,
@@ -93,21 +96,27 @@ class _ProfileEditViewState extends State<_ProfileEditView> {
               ),
             ),
             _ => ListView(
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 40),
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
               children: [
                 const Text(
                   'Nama lengkap',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 10),
                 TextField(
                   controller: _nameController,
+                  style: const TextStyle(fontSize: 17),
                   maxLength: 100,
                   textCapitalization: TextCapitalization.words,
                   enabled: state.status != ProfileEditStatus.saving,
                   onChanged: context.read<ProfileEditCubit>().setFullName,
                   decoration: InputDecoration(
                     hintText: 'Masukkan nama lengkap',
+                    hintStyle: const TextStyle(fontSize: 16),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 18,
+                    ),
                     filled: true,
                     fillColor: Colors.white,
                     border: OutlineInputBorder(
@@ -118,7 +127,10 @@ class _ProfileEditViewState extends State<_ProfileEditView> {
                 if (state.errorMessage.isNotEmpty)
                   Text(
                     state.errorMessage,
-                    style: const TextStyle(color: Color(0xFFB42318)),
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFFB42318),
+                    ),
                   ),
                 const SizedBox(height: 14),
                 FilledButton(
@@ -126,7 +138,7 @@ class _ProfileEditViewState extends State<_ProfileEditView> {
                       ? null
                       : context.read<ProfileEditCubit>().save,
                   style: FilledButton.styleFrom(
-                    minimumSize: const Size.fromHeight(52),
+                    minimumSize: const Size.fromHeight(56),
                     backgroundColor: const Color(0xFF111111),
                   ),
                   child: state.status == ProfileEditStatus.saving
@@ -138,13 +150,20 @@ class _ProfileEditViewState extends State<_ProfileEditView> {
                             color: Colors.white,
                           ),
                         )
-                      : const Text('Simpan Perubahan'),
+                      : const Text(
+                          'Simpan Perubahan',
+                          style: TextStyle(fontSize: 16),
+                        ),
                 ),
                 const SizedBox(height: 24),
                 const Text(
                   'Email, role, status, UID, dan assignment laboratorium '
                   'dikelola administrator.',
-                  style: TextStyle(color: Color(0xFF6B7280)),
+                  style: TextStyle(
+                    fontSize: 14,
+                    height: 1.45,
+                    color: Color(0xFF6B7280),
+                  ),
                 ),
               ],
             ),

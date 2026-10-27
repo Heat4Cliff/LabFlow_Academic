@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../auth/data/auth_service.dart';
 import '../domain/student_models.dart';
 
 class StudentService {
@@ -331,7 +332,10 @@ class StudentService {
   }
 
   Future<void> signOut() async {
-    await _firebaseAuth.signOut();
+    await AuthService(
+      firebaseAuth: _firebaseAuth,
+      firestore: _firestore,
+    ).signOut();
   }
 }
 

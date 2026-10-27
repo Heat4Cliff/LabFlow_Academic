@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../auth/data/auth_service.dart';
 import '../domain/lab_admin_profile.dart';
 
 class LabAdminProfileService {
@@ -114,7 +115,10 @@ class LabAdminProfileService {
 
   Future<void> signOut() async {
     try {
-      await _firebaseAuth.signOut();
+      await AuthService(
+        firebaseAuth: _firebaseAuth,
+        firestore: _firestore,
+      ).signOut();
     } on FirebaseAuthException catch (error) {
       throw LabAdminProfileException('Logout gagal (${error.code}).');
     }

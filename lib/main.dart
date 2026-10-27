@@ -2,7 +2,9 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import 'app/app.dart';
+import 'core/session/session_startup_service.dart';
 import 'core/storage/app_preferences.dart';
+import 'features/auth/data/auth_service.dart';
 import 'firebase_options.dart';
 
 Future<void> main() async {
@@ -22,7 +24,7 @@ Future<void> main() async {
   } else if (!hasCompletedOnboarding) {
     initialLocation = '/onboarding';
   } else {
-    initialLocation = '/login';
+    initialLocation = await SessionStartupService(AuthService()).restoreRoute();
   }
 
   runApp(LabFlowApp(initialLocation: initialLocation));

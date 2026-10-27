@@ -67,6 +67,7 @@ flutter:
     - assets/images/onboarding/
     - assets/images/splash/
     - assets/images/auth/
+    - assets/branding/labflow_app_icon_1024.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../shared/presentation/notifications/labflow_notification.dart';
 import '../../../../shared/presentation/states/labflow_connection_error_state.dart';
 import '../../../../shared/presentation/states/labflow_loading_state.dart';
+import '../../../profile/presentation/widgets/profile_navigation_widgets.dart';
 import '../../data/lab_admin_profile_service.dart';
 import '../../domain/lab_admin_profile.dart';
 import '../cubit/lab_admin_profile_cubit.dart';
@@ -12,12 +13,15 @@ import '../cubit/lab_admin_profile_state.dart';
 import '../widgets/lab_admin_bottom_navigation.dart';
 
 class LabAdminProfilePage extends StatelessWidget {
-  const LabAdminProfilePage({super.key});
+  const LabAdminProfilePage({this.service, super.key});
+
+  final LabAdminProfileService? service;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => LabAdminProfileCubit(LabAdminProfileService())..load(),
+      create: (_) =>
+          LabAdminProfileCubit(service ?? LabAdminProfileService())..load(),
       child: const _LabAdminProfileView(),
     );
   }
@@ -84,21 +88,23 @@ class _LabAdminProfileView extends StatelessWidget {
       onRefresh: context.read<LabAdminProfileCubit>().load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 14, 20, 32),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 36),
         children: [
           const Text(
             'Profil',
             style: TextStyle(
-              fontSize: 26,
+              fontSize: 31,
               fontWeight: FontWeight.w900,
               color: Color(0xFF111111),
             ),
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
           _profileHero(profile),
           const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: () async {
+          ProfileMenuTile(
+            icon: Icons.edit_outlined,
+            title: 'Edit Profil',
+            onTap: () async {
               final updated = await context.push<bool>(
                 '/lab-admin/profile/edit',
               );
@@ -106,8 +112,21 @@ class _LabAdminProfileView extends StatelessWidget {
                 await context.read<LabAdminProfileCubit>().load();
               }
             },
-            icon: const Icon(Icons.edit_outlined),
-            label: const Text('Edit Profil'),
+          ),
+          ProfileMenuTile(
+            icon: Icons.menu_book_outlined,
+            title: 'Panduan Aplikasi',
+            onTap: () => context.push('/lab-admin/profile/guide'),
+          ),
+          ProfileMenuTile(
+            icon: Icons.tune_rounded,
+            title: 'Pengaturan',
+            onTap: () => context.push('/lab-admin/profile/settings'),
+          ),
+          ProfileMenuTile(
+            icon: Icons.science_outlined,
+            title: 'Tentang LabFlow',
+            onTap: () => context.push('/lab-admin/profile/about'),
           ),
           const SizedBox(height: 16),
           _sectionTitle('Informasi Akun'),
@@ -175,7 +194,7 @@ class _LabAdminProfileView extends StatelessWidget {
           const SizedBox(height: 22),
           SizedBox(
             width: double.infinity,
-            height: 54,
+            height: 56,
             child: OutlinedButton.icon(
               onPressed: state.isSigningOut
                   ? null
@@ -200,7 +219,7 @@ class _LabAdminProfileView extends StatelessWidget {
                   : const Icon(Icons.logout_rounded),
               label: const Text(
                 'Keluar dari Akun',
-                style: TextStyle(fontWeight: FontWeight.w800),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: const Color(0xFFB42318),
@@ -213,7 +232,7 @@ class _LabAdminProfileView extends StatelessWidget {
           const Text(
             'LabFlow · Laboratory Asset & Service Management System',
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 10, color: Color(0xFF8A9186)),
+            style: TextStyle(fontSize: 12, color: Color(0xFF8A9186)),
           ),
         ],
       ),
@@ -223,7 +242,7 @@ class _LabAdminProfileView extends StatelessWidget {
   Widget _profileHero(LabAdminProfile profile) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(23),
       decoration: BoxDecoration(
         color: const Color(0xFF111111),
         borderRadius: BorderRadius.circular(26),
@@ -231,8 +250,8 @@ class _LabAdminProfileView extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 66,
-            height: 66,
+            width: 82,
+            height: 82,
             decoration: const BoxDecoration(
               color: Color(0xFFB9F33D),
               shape: BoxShape.circle,
@@ -241,7 +260,7 @@ class _LabAdminProfileView extends StatelessWidget {
             child: Text(
               profile.initials,
               style: const TextStyle(
-                fontSize: 22,
+                fontSize: 27,
                 fontWeight: FontWeight.w900,
                 color: Color(0xFF111111),
               ),
@@ -254,7 +273,7 @@ class _LabAdminProfileView extends StatelessWidget {
               children: [
                 const Text(
                   'Lab Admin',
-                  style: TextStyle(fontSize: 11, color: Color(0xFFB8BCB3)),
+                  style: TextStyle(fontSize: 13, color: Color(0xFFB8BCB3)),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -262,7 +281,7 @@ class _LabAdminProfileView extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 19,
+                    fontSize: 23,
                     height: 1.15,
                     fontWeight: FontWeight.w900,
                     color: Colors.white,
@@ -272,7 +291,7 @@ class _LabAdminProfileView extends StatelessWidget {
                 Text(
                   '${profile.laboratories.length} laboratorium aktif',
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 14,
                     color: Color(0xFFB8BCB3),
                   ),
                 ),
@@ -287,7 +306,7 @@ class _LabAdminProfileView extends StatelessWidget {
   Widget _sectionTitle(String title) {
     return Text(
       title,
-      style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
     );
   }
 
@@ -315,7 +334,7 @@ class _LabAdminProfileView extends StatelessWidget {
                 Text(
                   label,
                   style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: 13,
                     color: Color(0xFF7A8190),
                   ),
                 ),
@@ -323,7 +342,7 @@ class _LabAdminProfileView extends StatelessWidget {
                 Text(
                   value,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -354,12 +373,12 @@ class _LabAdminProfileView extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             label,
-            style: const TextStyle(fontSize: 11, color: Color(0xFF7A8190)),
+            style: const TextStyle(fontSize: 13, color: Color(0xFF7A8190)),
           ),
           const SizedBox(height: 4),
           Text(
             value,
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
           ),
         ],
       ),
@@ -394,7 +413,7 @@ class _LabAdminProfileView extends StatelessWidget {
                 Text(
                   laboratory.name,
                   style: const TextStyle(
-                    fontSize: 14,
+                    fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -402,7 +421,7 @@ class _LabAdminProfileView extends StatelessWidget {
                 Text(
                   '${laboratory.code} · ${laboratory.location}',
                   style: const TextStyle(
-                    fontSize: 11,
+                    fontSize: 13,
                     color: Color(0xFF7A8190),
                   ),
                 ),

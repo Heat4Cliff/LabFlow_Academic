@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../profile/presentation/widgets/profile_navigation_widgets.dart';
 import '../../data/student_service.dart';
 import '../../domain/student_models.dart';
 import '../cubit/student_data_state.dart';
@@ -10,12 +11,14 @@ import '../widgets/student_bottom_navigation.dart';
 import '../widgets/student_ui.dart';
 
 class StudentProfilePage extends StatelessWidget {
-  const StudentProfilePage({super.key});
+  const StudentProfilePage({this.service, super.key});
+
+  final StudentService? service;
 
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => StudentProfileCubit(StudentService())..load(),
+      create: (_) => StudentProfileCubit(service ?? StudentService())..load(),
       child: const _StudentProfileView(),
     );
   }
@@ -59,12 +62,20 @@ class _StudentProfileView extends StatelessWidget {
       onRefresh: context.read<StudentProfileCubit>().load,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(18, 16, 18, 32),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 36),
         children: [
-          const StudentPageTitle(title: 'Profil'),
-          const SizedBox(height: 18),
+          const Text(
+            'Profil',
+            style: TextStyle(
+              fontSize: 31,
+              height: 1.1,
+              fontWeight: FontWeight.w900,
+              color: studentInk,
+            ),
+          ),
+          const SizedBox(height: 20),
           Container(
-            padding: const EdgeInsets.all(18),
+            padding: const EdgeInsets.all(23),
             decoration: BoxDecoration(
               color: studentSoftLime,
               borderRadius: BorderRadius.circular(24),
@@ -72,8 +83,8 @@ class _StudentProfileView extends StatelessWidget {
             child: Row(
               children: [
                 Container(
-                  width: 64,
-                  height: 64,
+                  width: 82,
+                  height: 82,
                   decoration: BoxDecoration(
                     color: studentSoftLime,
                     shape: BoxShape.circle,
@@ -83,29 +94,31 @@ class _StudentProfileView extends StatelessWidget {
                   child: Text(
                     profile.initials,
                     style: const TextStyle(
-                      fontSize: 20,
+                      fontSize: 27,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
                 ),
-                const SizedBox(width: 14),
+                const SizedBox(width: 16),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         profile.displayName,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 18,
+                          fontSize: 23,
                           height: 1.15,
                           fontWeight: FontWeight.w900,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 4,
+                          horizontal: 11,
+                          vertical: 6,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.white,
@@ -113,14 +126,16 @@ class _StudentProfileView extends StatelessWidget {
                         ),
                         child: const Text(
                           'Student',
-                          style: TextStyle(fontSize: 8, color: studentMuted),
+                          style: TextStyle(fontSize: 12, color: studentMuted),
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Text(
                         profile.email,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          fontSize: 9,
+                          fontSize: 13,
                           color: studentMuted,
                         ),
                       ),
@@ -130,10 +145,10 @@ class _StudentProfileView extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 14),
-          _menu(
-            Icons.manage_accounts_outlined,
-            'Edit Profil',
+          const SizedBox(height: 18),
+          ProfileMenuTile(
+            icon: Icons.manage_accounts_outlined,
+            title: 'Edit Profil',
             onTap: () async {
               final updated = await context.push<bool>('/student/profile/edit');
               if (updated == true && context.mounted) {
@@ -141,12 +156,24 @@ class _StudentProfileView extends StatelessWidget {
               }
             },
           ),
-          _menu(Icons.menu_book_outlined, 'Panduan Aplikasi'),
-          _menu(Icons.tune_rounded, 'Pengaturan'),
-          _menu(Icons.science_outlined, 'Tentang LabFlow'),
-          const SizedBox(height: 18),
+          ProfileMenuTile(
+            icon: Icons.menu_book_outlined,
+            title: 'Panduan Aplikasi',
+            onTap: () => context.push('/student/profile/guide'),
+          ),
+          ProfileMenuTile(
+            icon: Icons.tune_rounded,
+            title: 'Pengaturan',
+            onTap: () => context.push('/student/profile/settings'),
+          ),
+          ProfileMenuTile(
+            icon: Icons.science_outlined,
+            title: 'Tentang LabFlow',
+            onTap: () => context.push('/student/profile/about'),
+          ),
+          const SizedBox(height: 22),
           SizedBox(
-            height: 50,
+            height: 56,
             child: OutlinedButton.icon(
               onPressed: () async {
                 final confirmed = await _confirmLogout(context);
@@ -161,41 +188,21 @@ class _StudentProfileView extends StatelessWidget {
                 backgroundColor: Colors.white,
                 shape: const StadiumBorder(),
               ),
-              icon: const Icon(Icons.logout_rounded, size: 18),
+              icon: const Icon(Icons.logout_rounded, size: 22),
               label: const Text(
                 'Keluar',
-                style: TextStyle(fontWeight: FontWeight.w800),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
               ),
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           const Center(
             child: Text(
               'LabFlow · Versi 1.0.0',
-              style: TextStyle(fontSize: 9, color: studentMuted),
+              style: TextStyle(fontSize: 12, color: studentMuted),
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _menu(IconData icon, String title, {VoidCallback? onTap}) {
-    return InkWell(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: studentBorder)),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, size: 18, color: studentInk),
-            const SizedBox(width: 12),
-            Expanded(child: Text(title, style: const TextStyle(fontSize: 12))),
-            const Icon(Icons.chevron_right_rounded, size: 18),
-          ],
-        ),
       ),
     );
   }

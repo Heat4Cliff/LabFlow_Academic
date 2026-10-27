@@ -23,6 +23,9 @@ import '../../features/maintenance/presentation/pages/maintenance_detail_page.da
 import '../../features/maintenance/presentation/pages/maintenance_list_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../../features/profile/presentation/pages/profile_edit_page.dart';
+import '../../features/profile/presentation/pages/application_guide_page.dart';
+import '../../features/profile/presentation/pages/about_labflow_page.dart';
+import '../../features/profile/presentation/pages/labflow_settings_page.dart';
 import '../../features/reporting/presentation/pages/admin_report_detail_page.dart';
 import '../../features/reporting/presentation/pages/admin_report_list_page.dart';
 import '../../features/splash/presentation/pages/splash_page.dart';
@@ -174,6 +177,33 @@ GoRouter createAppRouter({required String initialLocation}) {
           child: ProfileEditPage(returnPath: '/superadmin/profile'),
         ),
       ),
+      GoRoute(
+        path: '/superadmin/profile/guide',
+        builder: (context, state) => const LabFlowAccountStatusGate(
+          requiredRole: 'superadmin',
+          child: ApplicationGuidePage(
+            role: 'superadmin',
+            returnPath: '/superadmin/profile',
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/superadmin/profile/settings',
+        builder: (context, state) => const LabFlowAccountStatusGate(
+          requiredRole: 'superadmin',
+          child: LabFlowSettingsPage(
+            role: 'superadmin',
+            returnPath: '/superadmin/profile',
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/superadmin/profile/about',
+        builder: (context, state) => const LabFlowAccountStatusGate(
+          requiredRole: 'superadmin',
+          child: AboutLabFlowPage(returnPath: '/superadmin/profile'),
+        ),
+      ),
 
       /// Area Student.
       GoRoute(
@@ -304,6 +334,33 @@ GoRouter createAppRouter({required String initialLocation}) {
           child: ProfileEditPage(returnPath: '/student/profile'),
         ),
       ),
+      GoRoute(
+        path: '/student/profile/guide',
+        builder: (context, state) => const LabFlowAccountStatusGate(
+          requiredRole: 'student',
+          child: ApplicationGuidePage(
+            role: 'student',
+            returnPath: '/student/profile',
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/student/profile/settings',
+        builder: (context, state) => const LabFlowAccountStatusGate(
+          requiredRole: 'student',
+          child: LabFlowSettingsPage(
+            role: 'student',
+            returnPath: '/student/profile',
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/student/profile/about',
+        builder: (context, state) => const LabFlowAccountStatusGate(
+          requiredRole: 'student',
+          child: AboutLabFlowPage(returnPath: '/student/profile'),
+        ),
+      ),
 
       GoRoute(
         path: '/student/notifications',
@@ -344,6 +401,33 @@ GoRouter createAppRouter({required String initialLocation}) {
         builder: (context, state) => const LabFlowAccountStatusGate(
           requiredRole: 'lab_admin',
           child: ProfileEditPage(returnPath: '/lab-admin/profile'),
+        ),
+      ),
+      GoRoute(
+        path: '/lab-admin/profile/guide',
+        builder: (context, state) => const LabFlowAccountStatusGate(
+          requiredRole: 'lab_admin',
+          child: ApplicationGuidePage(
+            role: 'lab_admin',
+            returnPath: '/lab-admin/profile',
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/lab-admin/profile/settings',
+        builder: (context, state) => const LabFlowAccountStatusGate(
+          requiredRole: 'lab_admin',
+          child: LabFlowSettingsPage(
+            role: 'lab_admin',
+            returnPath: '/lab-admin/profile',
+          ),
+        ),
+      ),
+      GoRoute(
+        path: '/lab-admin/profile/about',
+        builder: (context, state) => const LabFlowAccountStatusGate(
+          requiredRole: 'lab_admin',
+          child: AboutLabFlowPage(returnPath: '/lab-admin/profile'),
         ),
       ),
 

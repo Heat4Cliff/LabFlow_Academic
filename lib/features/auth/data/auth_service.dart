@@ -1,18 +1,25 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../../../core/session/app_session_manager.dart';
 import '../domain/user_profile.dart';
 
 class AuthService {
-  AuthService({FirebaseAuth? firebaseAuth, FirebaseFirestore? firestore})
-    : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance,
-      _firestore = firestore ?? FirebaseFirestore.instance;
+  AuthService({
+    FirebaseAuth? firebaseAuth,
+    FirebaseFirestore? firestore,
+    AppSessionManager? sessionManager,
+  }) : _firebaseAuth = firebaseAuth ?? FirebaseAuth.instance,
+       _firestore = firestore ?? FirebaseFirestore.instance,
+       _sessionManager = sessionManager ?? AppSessionManager.instance;
 
   final FirebaseAuth _firebaseAuth;
   final FirebaseFirestore _firestore;
+  final AppSessionManager _sessionManager;
 
   /// User Firebase yang sedang login.
   User? get currentUser => _firebaseAuth.currentUser;
+  String? get currentUid => _firebaseAuth.currentUser?.uid;
 
   /// Login menggunakan Firebase Authentication.
   ///
@@ -23,12 +30,31 @@ class AuthService {
     required String password,
   }) async {
     try {
+      // Login baru tidak boleh mewarisi timestamp dari percobaan sebelumnya.
+      await _sessionManager.clear();
       await _firebaseAuth.signInWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
 
-      return await getCurrentUserProfile();
+      final profile = await _loadCurrentUserProfile();
+      if (!isSupportedRole(profile.role)) {
+        await signOut();
+        throw const AuthServiceException(
+          'Role akun tidak dikenali.',
+          code: AuthServiceException.invalidRole,
+        );
+      }
+      try {
+        await _sessionManager.start(profile.uid);
+      } catch (_) {
+        await signOut();
+        throw const AuthServiceException(
+          'Sesi lokal tidak dapat disimpan. Silakan coba login kembali.',
+          code: AuthServiceException.sessionNotFound,
+        );
+      }
+      return profile;
     } on FirebaseAuthException catch (error) {
       throw AuthServiceException(
         _firebaseMessage(error.code),
@@ -45,6 +71,24 @@ class AuthService {
   /// Halaman berdasarkan role tetap memanggil method ini agar
   /// akses tidak hanya bergantung pada routing UI.
   Future<UserProfile> getCurrentUserProfile() async {
+    await requireValidSession();
+    return _loadCurrentUserProfile();
+  }
+
+  Future<AppSession> requireValidSession() async {
+    final uid = _firebaseAuth.currentUser?.uid;
+    if (uid != null) {
+      final session = await _sessionManager.validFor(uid);
+      if (session != null) return session;
+    }
+    await signOut();
+    throw const AuthServiceException(
+      'Sesi Anda telah berakhir. Silakan masuk kembali.',
+      code: AuthServiceException.sessionNotFound,
+    );
+  }
+
+  Future<UserProfile> _loadCurrentUserProfile() async {
     final user = _firebaseAuth.currentUser;
 
     if (user == null) {
@@ -86,8 +130,15 @@ class AuthService {
 
   /// Keluar dari Firebase Authentication.
   Future<void> signOut() async {
-    await _firebaseAuth.signOut();
+    try {
+      await _firebaseAuth.signOut();
+    } finally {
+      await _sessionManager.clear();
+    }
   }
+
+  static bool isSupportedRole(String role) =>
+      role == 'student' || role == 'lab_admin' || role == 'superadmin';
 
   /// Mengubah kode error Firebase Authentication menjadi kode
   /// domain yang dapat dikenali presentation layer.
@@ -142,6 +193,7 @@ class AuthServiceException implements Exception {
   static const String sessionNotFound = 'session-not-found';
   static const String profileNotFound = 'profile-not-found';
   static const String accountSuspended = 'account-suspended';
+  static const String invalidRole = 'invalid-role';
   static const String unknown = 'unknown';
 
   final String message;

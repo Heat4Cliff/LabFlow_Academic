@@ -7,17 +7,20 @@ import '../../../../shared/presentation/states/labflow_access_denied_state.dart'
 import '../../../../shared/presentation/states/labflow_connection_error_state.dart';
 import '../../../../shared/presentation/states/labflow_loading_state.dart';
 import '../../../../shared/presentation/states/labflow_suspended_account_state.dart';
+import '../../../profile/presentation/widgets/profile_navigation_widgets.dart';
 import '../../../auth/data/auth_service.dart';
 import '../../../auth/domain/user_profile.dart';
 import '../cubit/superadmin_profile_cubit.dart';
 import '../widgets/superadmin_bottom_navigation.dart';
 
 class SuperadminProfilePage extends StatelessWidget {
-  const SuperadminProfilePage({super.key});
+  const SuperadminProfilePage({this.authService, super.key});
+
+  final AuthService? authService;
 
   @override
   Widget build(BuildContext context) => RepositoryProvider<AuthService>(
-    create: (_) => AuthService(),
+    create: (_) => authService ?? AuthService(),
     child: BlocProvider(
       create: (context) =>
           SuperadminProfileCubit(context.read<AuthService>())..load(),
@@ -123,9 +126,9 @@ class _SuperadminProfilePageState extends State<_SuperadminProfileView> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Profile',
+            'Profil',
             style: TextStyle(
-              fontSize: 30,
+              fontSize: 31,
               height: 1,
               fontWeight: FontWeight.w800,
               color: Color(0xFF111111),
@@ -139,8 +142,10 @@ class _SuperadminProfilePageState extends State<_SuperadminProfileView> {
           const SizedBox(height: 28),
           _buildIdentityCard(profile),
           const SizedBox(height: 18),
-          OutlinedButton.icon(
-            onPressed: () async {
+          ProfileMenuTile(
+            icon: Icons.edit_outlined,
+            title: 'Edit Profil',
+            onTap: () async {
               final updated = await context.push<bool>(
                 '/superadmin/profile/edit',
               );
@@ -148,13 +153,33 @@ class _SuperadminProfilePageState extends State<_SuperadminProfileView> {
                 await context.read<SuperadminProfileCubit>().load();
               }
             },
-            icon: const Icon(Icons.edit_outlined),
-            label: const Text('Edit Profil'),
+          ),
+          ProfileMenuTile(
+            icon: Icons.menu_book_outlined,
+            title: 'Panduan Aplikasi',
+            onTap: () => context.push('/superadmin/profile/guide'),
+          ),
+          ProfileMenuTile(
+            icon: Icons.tune_rounded,
+            title: 'Pengaturan',
+            onTap: () => context.push('/superadmin/profile/settings'),
+          ),
+          ProfileMenuTile(
+            icon: Icons.science_outlined,
+            title: 'Tentang LabFlow',
+            onTap: () => context.push('/superadmin/profile/about'),
           ),
           const SizedBox(height: 18),
           _buildAccountInformation(profile),
           const SizedBox(height: 22),
           _buildLogoutButton(),
+          const SizedBox(height: 18),
+          const Center(
+            child: Text(
+              'LabFlow · Versi 1.0.0',
+              style: TextStyle(fontSize: 12, color: Color(0xFF7A8190)),
+            ),
+          ),
         ],
       ),
     );
@@ -171,8 +196,8 @@ class _SuperadminProfilePageState extends State<_SuperadminProfileView> {
       child: Row(
         children: [
           Container(
-            width: 68,
-            height: 68,
+            width: 80,
+            height: 80,
             alignment: Alignment.center,
             decoration: const BoxDecoration(
               color: Color(0xFFB9F33D),
@@ -181,7 +206,7 @@ class _SuperadminProfilePageState extends State<_SuperadminProfileView> {
             child: Text(
               _initials(profile.fullName),
               style: const TextStyle(
-                fontSize: 20,
+                fontSize: 26,
                 fontWeight: FontWeight.w800,
                 color: Color(0xFF111111),
               ),
@@ -197,7 +222,7 @@ class _SuperadminProfilePageState extends State<_SuperadminProfileView> {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 20,
+                    fontSize: 23,
                     height: 1.2,
                     fontWeight: FontWeight.w800,
                     color: Colors.white,
@@ -206,10 +231,10 @@ class _SuperadminProfilePageState extends State<_SuperadminProfileView> {
                 const SizedBox(height: 6),
                 Text(
                   profile.email,
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 14,
                     color: Color(0xFFB7BAB4),
                   ),
                 ),
@@ -364,7 +389,7 @@ class _SuperadminProfilePageState extends State<_SuperadminProfileView> {
   Widget _buildLogoutButton() {
     return SizedBox(
       width: double.infinity,
-      height: 54,
+      height: 56,
       child: OutlinedButton.icon(
         onPressed: _logout,
         style: OutlinedButton.styleFrom(
@@ -375,7 +400,7 @@ class _SuperadminProfilePageState extends State<_SuperadminProfileView> {
         icon: const Icon(Icons.logout_rounded, size: 20),
         label: const Text(
           'Keluar dari LabFlow',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
         ),
       ),
     );
