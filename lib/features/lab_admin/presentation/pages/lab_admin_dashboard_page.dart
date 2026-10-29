@@ -102,7 +102,8 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) =>
-          NotificationCenterCubit(NotificationCenterService())..start(),
+          NotificationCenterCubit(NotificationCenterService(role: 'lab_admin'))
+            ..start(),
       child: Scaffold(
         backgroundColor: _paper,
         body: SafeArea(

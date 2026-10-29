@@ -383,7 +383,7 @@ class _AdminBorrowRequestsViewState extends State<_AdminBorrowRequestsView> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      request.studentId,
+                      request.studentNameLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w700),

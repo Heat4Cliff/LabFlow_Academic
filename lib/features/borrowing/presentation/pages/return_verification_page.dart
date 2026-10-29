@@ -87,7 +87,7 @@ class _ReturnVerificationView extends StatelessWidget {
           children: [
             _requestSummary(
               requestNumber: request.requestNumber,
-              studentId: request.studentId,
+              studentId: request.studentNameLabel,
             ),
             const SizedBox(height: 16),
             Container(

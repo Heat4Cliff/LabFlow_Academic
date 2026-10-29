@@ -367,7 +367,7 @@ class _AdminBorrowRequestsPageState extends State<AdminBorrowRequestsPage> {
       final searchMatches =
           query.isEmpty ||
           request.requestNumber.toLowerCase().contains(query) ||
-          request.studentId.toLowerCase().contains(query) ||
+          request.studentNameLabel.toLowerCase().contains(query) ||
           request.purpose.toLowerCase().contains(query);
       return statusMatches && searchMatches;
     }).toList();
@@ -432,7 +432,7 @@ class _AdminBorrowRequestsPageState extends State<AdminBorrowRequestsPage> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      request.studentId,
+                      request.studentNameLabel,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontWeight: FontWeight.w700),
@@ -919,7 +919,7 @@ class _AdminBorrowRequestDetailPageState
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  request.studentId,
+                  request.studentNameLabel,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -991,7 +991,7 @@ class _AdminBorrowRequestDetailPageState
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Jumlah ${items[index].quantity}${items[index].requestedAssetId == null ? '' : ' · Aset ${items[index].requestedAssetId}'}',
+                          items[index].subtitle,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(

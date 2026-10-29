@@ -5,8 +5,11 @@ class LabReport {
     required this.id,
     required this.reportNumber,
     required this.reporterId,
+    this.reporterName,
     required this.labId,
     required this.assetId,
+    this.assetName,
+    this.assetCode,
     required this.category,
     required this.title,
     required this.description,
@@ -26,8 +29,14 @@ class LabReport {
   final String id;
   final String reportNumber;
   final String reporterId;
+  final String? reporterName;
   final String labId;
   final String? assetId;
+  final String? assetName;
+  final String? assetCode;
+  String get reporterNameLabel => reporterName?.trim().isNotEmpty == true
+      ? reporterName!.trim()
+      : 'Nama pelapor belum tersedia';
   final String category;
   final String title;
   final String description;
@@ -62,10 +71,15 @@ class LabReport {
 
     return LabReport(
       id: document.id,
-      reportNumber: (data['reportNumber'] as String? ?? document.id).trim(),
+      reportNumber:
+          (data['reportNumber'] as String? ?? 'Kode laporan belum tersedia')
+              .trim(),
       reporterId: (data['reporterId'] as String? ?? '').trim(),
+      reporterName: _nullableString(data['reporterName']),
       labId: (data['labId'] as String? ?? '').trim(),
       assetId: _nullableString(data['assetId']),
+      assetName: _nullableString(data['assetName']),
+      assetCode: _nullableString(data['assetCode']),
       category: (data['category'] as String? ?? 'other').trim(),
       title: (data['title'] as String? ?? 'Laporan laboratorium').trim(),
       description: (data['description'] as String? ?? '').trim(),

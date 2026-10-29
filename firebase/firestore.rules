@@ -227,6 +227,7 @@ service cloud.firestore {
         && data.keys().hasOnly([
           'requestNumber',
           'studentId',
+          'studentName',
           'labId',
           'purpose',
           'borrowDate',
@@ -241,6 +242,11 @@ service cloud.firestore {
         ])
         && data.requestNumber is string
         && data.studentId is string
+        && (!('studentName' in data)
+          || (data.studentName is string
+            && data.studentName.size() > 0
+            && data.studentName.size() <= 100
+            && data.studentName.matches('.*\\S.*')))
         && data.labId is string
         && data.purpose is string
         && data.borrowDate is timestamp
@@ -414,8 +420,11 @@ service cloud.firestore {
         && data.keys().hasOnly([
           'reportNumber',
           'reporterId',
+          'reporterName',
           'labId',
           'assetId',
+          'assetName',
+          'assetCode',
           'category',
           'title',
           'description',
@@ -435,9 +444,17 @@ service cloud.firestore {
         && data.reportNumber.size() > 0
         && data.reporterId is string
         && data.reporterId.size() > 0
+        && (!('reporterName' in data)
+          || (data.reporterName is string
+            && data.reporterName.size() > 0
+            && data.reporterName.size() <= 100))
         && data.labId is string
         && data.labId.size() > 0
         && (data.assetId == null || data.assetId is string)
+        && (!('assetName' in data)
+          || (data.assetName is string && data.assetName.size() <= 120))
+        && (!('assetCode' in data)
+          || (data.assetCode is string && data.assetCode.size() <= 50))
         && data.category is string
         && data.category in [
           'asset_damage',
@@ -628,6 +645,16 @@ service cloud.firestore {
       allow delete: if signedIn() && request.auth.uid == userId;
     }
 
+    match /users/{userId}/notification_states/{eventId} {
+      allow get, list: if isActive() && request.auth.uid == userId;
+      allow create, update: if isActive()
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['isRead', 'readAt'])
+        && request.resource.data.isRead == true
+        && request.resource.data.readAt == request.time;
+      allow delete: if isActive() && request.auth.uid == userId;
+    }
+
 
     // =========================================================
     // LABORATORIES
@@ -672,6 +699,9 @@ service cloud.firestore {
         isStudent()
         && validBorrowRequestData(request.resource.data)
         && request.resource.data.studentId == request.auth.uid
+        && request.resource.data.studentName == get(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.fullName
         && request.resource.data.status == 'pending'
         && request.resource.data.approvedBy == null
         && request.resource.data.approvedAt == null
@@ -682,6 +712,9 @@ service cloud.firestore {
         validBorrowRequestData(request.resource.data)
         && request.resource.data.requestNumber == resource.data.requestNumber
         && request.resource.data.studentId == resource.data.studentId
+        && ((!('studentName' in resource.data)
+              && !('studentName' in request.resource.data))
+            || request.resource.data.studentName == resource.data.studentName)
         && request.resource.data.labId == resource.data.labId
         && request.resource.data.purpose == resource.data.purpose
         && request.resource.data.borrowDate == resource.data.borrowDate
@@ -803,13 +836,20 @@ service cloud.firestore {
             'itemId',
             'itemName',
             'quantity',
-            'requestedAssetId'
+            'requestedAssetId',
+            'requestedAssetCode'
           ])
           && request.resource.data.itemId is string
           && request.resource.data.itemName is string
           && request.resource.data.quantity is int
           && request.resource.data.quantity >= 1
           && request.resource.data.requestedAssetId is string
+          && (!('requestedAssetCode' in request.resource.data)
+            || (request.resource.data.requestedAssetCode is string
+              && request.resource.data.requestedAssetCode.size() <= 50
+              && request.resource.data.requestedAssetCode == get(
+                /databases/$(database)/documents/assets/$(request.resource.data.requestedAssetId)
+              ).data.code))
           && request.resource.data.itemId ==
             request.resource.data.requestedAssetId
           && exists(
@@ -973,6 +1013,9 @@ service cloud.firestore {
         isStudent()
         && validReportData(request.resource.data)
         && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.reporterName == get(
+          /databases/$(database)/documents/users/$(request.auth.uid)
+        ).data.fullName
         && request.resource.data.status == 'open'
         && request.resource.data.priority == 'medium'
         && request.resource.data.assignedTo == null
@@ -983,9 +1026,18 @@ service cloud.firestore {
         && laboratoryIsActive(request.resource.data.labId)
         && (
           request.resource.data.assetId == null
-          || get(
-            /databases/$(database)/documents/assets/$(request.resource.data.assetId)
-          ).data.labId == request.resource.data.labId
+          || (
+            get(
+              /databases/$(database)/documents/assets/$(request.resource.data.assetId)
+            ).data.labId == request.resource.data.labId
+            && request.resource.data.assetName == get(
+              /databases/$(database)/documents/assets/$(request.resource.data.assetId)
+            ).data.name
+            && (!('assetCode' in request.resource.data)
+              || request.resource.data.assetCode == get(
+                /databases/$(database)/documents/assets/$(request.resource.data.assetId)
+              ).data.code)
+          )
         );
 
       allow update: if
@@ -993,8 +1045,17 @@ service cloud.firestore {
         && hasActiveLabMembership(resource.data.labId)
         && request.resource.data.reportNumber == resource.data.reportNumber
         && request.resource.data.reporterId == resource.data.reporterId
+        && ((!('reporterName' in resource.data)
+              && !('reporterName' in request.resource.data))
+            || request.resource.data.reporterName == resource.data.reporterName)
         && request.resource.data.labId == resource.data.labId
         && request.resource.data.assetId == resource.data.assetId
+        && ((!('assetName' in resource.data)
+              && !('assetName' in request.resource.data))
+            || request.resource.data.assetName == resource.data.assetName)
+        && ((!('assetCode' in resource.data)
+              && !('assetCode' in request.resource.data))
+            || request.resource.data.assetCode == resource.data.assetCode)
         && request.resource.data.category == resource.data.category
         && request.resource.data.title == resource.data.title
         && request.resource.data.description == resource.data.description

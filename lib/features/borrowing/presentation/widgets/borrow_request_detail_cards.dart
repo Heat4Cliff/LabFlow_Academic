@@ -38,7 +38,7 @@ class BorrowRequestIdentityCard extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               Text(
-                request.studentId,
+                request.studentNameLabel,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
@@ -139,8 +139,7 @@ class _BorrowRequestItemRow extends StatelessWidget {
             ),
             const SizedBox(height: 3),
             Text(
-              'Jumlah ${item.quantity}'
-              '${item.requestedAssetId == null ? '' : ' · Aset ${item.requestedAssetId}'}',
+              item.subtitle,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontSize: 12, color: Color(0xFF7A8190)),

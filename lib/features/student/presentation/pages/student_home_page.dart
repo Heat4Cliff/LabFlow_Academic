@@ -24,8 +24,9 @@ class StudentHomePage extends StatelessWidget {
       providers: [
         BlocProvider(create: (_) => StudentHomeCubit(StudentService())..load()),
         BlocProvider(
-          create: (_) =>
-              NotificationCenterCubit(NotificationCenterService())..start(),
+          create: (_) => NotificationCenterCubit(
+            NotificationCenterService(role: 'student'),
+          )..start(),
         ),
       ],
       child: const _StudentHomeView(),

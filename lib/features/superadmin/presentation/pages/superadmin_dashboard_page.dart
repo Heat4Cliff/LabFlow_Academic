@@ -33,8 +33,9 @@ class _SuperadminDashboardPageState extends State<SuperadminDashboardPage> {
           )..start(),
         ),
         BlocProvider(
-          create: (_) =>
-              NotificationCenterCubit(NotificationCenterService())..start(),
+          create: (_) => NotificationCenterCubit(
+            NotificationCenterService(role: 'superadmin'),
+          )..start(),
         ),
       ],
       child: BlocBuilder<SuperadminDashboardCubit, SuperadminDashboardState>(

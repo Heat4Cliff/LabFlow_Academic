@@ -3,15 +3,12 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:firebase_core/firebase_core.dart';
 
 import '../core/connectivity/connectivity_cubit.dart';
 import '../core/connectivity/connectivity_service.dart';
 import '../core/connectivity/connectivity_state.dart';
 import '../core/connectivity/offline_banner.dart';
 import '../features/auth/data/auth_service.dart';
-import '../features/notifications/data/push_notification_service.dart';
-import '../features/notifications/domain/notification_route_resolver.dart';
 import 'router/app_router.dart';
 import 'theme/app_theme.dart';
 
@@ -27,7 +24,6 @@ class LabFlowApp extends StatefulWidget {
 class _LabFlowAppState extends State<LabFlowApp> with WidgetsBindingObserver {
   late final GoRouter _router;
   late final AuthService _authService = AuthService();
-  PushNotificationService? _pushNotifications;
   Timer? _expiryTimer;
   bool _checkingSession = false;
   bool _verifyProfilePending = false;
@@ -48,30 +44,7 @@ class _LabFlowAppState extends State<LabFlowApp> with WidgetsBindingObserver {
     _router = createAppRouter(initialLocation: widget.initialLocation);
     _router.routeInformationProvider.addListener(_onRouteChanged);
     WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _onRouteChanged();
-      if (Firebase.apps.isNotEmpty) {
-        final pushNotifications = PushNotificationService();
-        _pushNotifications = pushNotifications;
-        unawaited(
-          pushNotifications.initialize(onOpen: _openNotificationTarget),
-        );
-      }
-    });
-  }
-
-  Future<void> _openNotificationTarget(Map<String, Object?> payload) async {
-    if (!mounted) return;
-    try {
-      final profile = await _authService.getCurrentUserProfile();
-      final route = const NotificationRouteResolver().resolve(
-        role: profile.role,
-        payload: payload,
-      );
-      if (mounted) _router.go(route);
-    } catch (_) {
-      if (mounted) _router.go('/login');
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _onRouteChanged());
   }
 
   bool get _isProtectedRoute {
@@ -124,7 +97,6 @@ class _LabFlowAppState extends State<LabFlowApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       unawaited(_checkSession(verifyProfile: true));
-      unawaited(_pushNotifications?.refreshPermissionAndToken());
     }
   }
 
@@ -133,7 +105,6 @@ class _LabFlowAppState extends State<LabFlowApp> with WidgetsBindingObserver {
     _expiryTimer?.cancel();
     _router.routeInformationProvider.removeListener(_onRouteChanged);
     WidgetsBinding.instance.removeObserver(this);
-    unawaited(_pushNotifications?.close());
     _router.dispose();
     unawaited(_connectivitySubscription?.cancel());
     _connectivityCubit.close();

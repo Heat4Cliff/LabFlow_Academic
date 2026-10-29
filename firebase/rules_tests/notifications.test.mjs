@@ -93,6 +93,19 @@ test('legacy Student notification remains readable and can be marked read', asyn
   await assertFails(getDoc(doc(clients.outsider, 'notifications', 'legacy-student')));
 });
 
+test('notification read state is private per account and clients cannot forge feed events', async () => {
+  const ownState = doc(clients['student-1'], 'users', 'student-1', 'notification_states', 'event-abc');
+  await assertSucceeds(setDoc(ownState, { isRead: true, readAt: serverTimestamp() }));
+  await assertSucceeds(getDoc(ownState));
+  await assertFails(getDoc(doc(clients.outsider, 'users', 'student-1', 'notification_states', 'event-abc')));
+  await assertFails(setDoc(doc(clients['student-1'], 'users', 'student-1', 'notification_states', 'forged'), {
+    isRead: false, readAt: serverTimestamp(),
+  }));
+  await assertFails(setDoc(doc(clients['student-1'], 'notifications', 'forged-event'), {
+    recipientId: 'student-1', title: 'Forged', body: 'Fake event',
+  }));
+});
+
 test('FCM token records are private to the owning active account and schema-checked', async () => {
   const tokenRef = doc(clients['student-1'], 'users', 'student-1', 'fcmTokens', 'token-hash');
   await assertSucceeds(setDoc(tokenRef, {

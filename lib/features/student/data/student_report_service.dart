@@ -127,17 +127,47 @@ class StudentReportService {
     );
     if (error != null) throw StudentReportException(error);
     final uid = _requireUid();
+    final userSnapshot = await _firestore.collection('users').doc(uid).get();
+    final reporterName = (userSnapshot.data()?['fullName'] as String? ?? '')
+        .trim();
+    if (!userSnapshot.exists || reporterName.isEmpty) {
+      throw const StudentReportException(
+        'Nama pada profil belum tersedia. Lengkapi profil sebelum mengirim laporan.',
+      );
+    }
     final cleanAssetId = assetId?.trim();
+    Map<String, dynamic>? assetData;
+    if (cleanAssetId != null && cleanAssetId.isNotEmpty) {
+      final assetSnapshot = await _firestore
+          .collection('assets')
+          .doc(cleanAssetId)
+          .get();
+      assetData = assetSnapshot.data();
+      if (!assetSnapshot.exists ||
+          assetData == null ||
+          assetData['labId'] != labId.trim()) {
+        throw const StudentReportException(
+          'Aset laporan tidak ditemukan pada laboratorium tersebut.',
+        );
+      }
+    }
     final report = _firestore.collection('reports').doc();
     final number =
         'RPT-${DateTime.now().year}-${report.id.substring(0, 6).toUpperCase()}';
     await report.set({
       'reportNumber': number,
       'reporterId': uid,
+      'reporterName': reporterName,
       'labId': labId.trim(),
       'assetId': cleanAssetId == null || cleanAssetId.isEmpty
           ? null
           : cleanAssetId,
+      if (assetData != null) ...{
+        'assetName': (assetData['name'] as String? ?? '').trim(),
+        if ((assetData['code'] as String? ?? '').trim().isNotEmpty &&
+            (assetData['code'] as String).trim() != '-')
+          'assetCode': (assetData['code'] as String).trim(),
+      },
       'category': category,
       'title': title.trim(),
       'description': description.trim(),

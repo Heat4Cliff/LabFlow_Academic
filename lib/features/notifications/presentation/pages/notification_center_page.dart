@@ -22,7 +22,7 @@ class NotificationCenterPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => BlocProvider(
     create: (_) =>
-        NotificationCenterCubit(NotificationCenterService())..start(),
+        NotificationCenterCubit(NotificationCenterService(role: role))..start(),
     child: _NotificationCenterView(role: role, homePath: _homePath),
   );
 }

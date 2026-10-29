@@ -166,14 +166,16 @@ class _AdminReportDetailView extends StatelessWidget {
             ReportDetailInfoCard(
               icon: Icons.person_outline_rounded,
               label: 'Pelapor',
-              value: report.reporterId,
+              value: report.reporterNameLabel,
             ),
-            if (report.assetId != null) ...[
+            if (report.assetName != null) ...[
               const SizedBox(height: 12),
               ReportDetailInfoCard(
                 icon: Icons.inventory_2_outlined,
-                label: 'Asset ID',
-                value: report.assetId!,
+                label: 'Aset',
+                value: report.assetCode?.isNotEmpty == true
+                    ? '${report.assetName} · Kode: ${report.assetCode}'
+                    : report.assetName!,
               ),
             ],
             if (report.adminResponse != null) ...[

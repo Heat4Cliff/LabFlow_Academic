@@ -5,6 +5,7 @@ class BorrowRequest {
     required this.id,
     required this.requestNumber,
     required this.studentId,
+    this.studentName,
     required this.labId,
     required this.purpose,
     required this.borrowDate,
@@ -21,6 +22,10 @@ class BorrowRequest {
   final String id;
   final String requestNumber;
   final String studentId;
+  final String? studentName;
+  String get studentNameLabel => studentName?.trim().isNotEmpty == true
+      ? studentName!.trim()
+      : 'Nama peminjam belum tersedia';
   final String labId;
   final String purpose;
   final DateTime borrowDate;
@@ -52,6 +57,7 @@ class BorrowRequest {
       id: document.id,
       requestNumber: data['requestNumber'] as String? ?? document.id,
       studentId: data['studentId'] as String? ?? '',
+      studentName: data['studentName'] as String?,
       labId: data['labId'] as String? ?? '',
       purpose: data['purpose'] as String? ?? '',
       borrowDate:
@@ -92,6 +98,7 @@ class BorrowRequestItem {
     required this.itemName,
     required this.quantity,
     required this.requestedAssetId,
+    this.requestedAssetCode,
   });
 
   final String id;
@@ -99,6 +106,9 @@ class BorrowRequestItem {
   final String itemName;
   final int quantity;
   final String? requestedAssetId;
+  final String? requestedAssetCode;
+  String get subtitle =>
+      'Jumlah $quantity${requestedAssetCode?.trim().isNotEmpty == true ? ' · Kode: ${requestedAssetCode!.trim()}' : ''}';
 
   factory BorrowRequestItem.fromDocument(
     DocumentSnapshot<Map<String, dynamic>> document,
@@ -116,6 +126,7 @@ class BorrowRequestItem {
       itemName: data['itemName'] as String? ?? 'Aset laboratorium',
       quantity: data['quantity'] as int? ?? 1,
       requestedAssetId: data['requestedAssetId'] as String?,
+      requestedAssetCode: data['requestedAssetCode'] as String?,
     );
   }
 }

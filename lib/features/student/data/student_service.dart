@@ -219,6 +219,14 @@ class StudentService {
     }
 
     final requestReference = _firestore.collection('borrow_requests').doc();
+    final profileSnapshot = await _firestore.collection('users').doc(uid).get();
+    final profileName = (profileSnapshot.data()?['fullName'] as String? ?? '')
+        .trim();
+    if (!profileSnapshot.exists || profileName.isEmpty) {
+      throw const StudentServiceException(
+        'Nama pada profil belum tersedia. Lengkapi profil sebelum mengajukan peminjaman.',
+      );
+    }
     final now = DateTime.now();
     final shortId = requestReference.id
         .replaceAll(RegExp(r'[^A-Za-z0-9]'), '')
@@ -230,6 +238,7 @@ class StudentService {
     final requestData = {
       'requestNumber': requestNumber,
       'studentId': uid,
+      'studentName': profileName,
       'labId': asset.labId,
       'purpose': cleanPurpose,
       'borrowDate': Timestamp.fromDate(borrowDay),
@@ -248,6 +257,8 @@ class StudentService {
       'itemName': latestAsset.name,
       'quantity': quantity,
       'requestedAssetId': asset.id,
+      if (latestAsset.code.trim().isNotEmpty && latestAsset.code.trim() != '-')
+        'requestedAssetCode': latestAsset.code.trim(),
     };
 
     try {
