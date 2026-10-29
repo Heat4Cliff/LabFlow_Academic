@@ -40,8 +40,7 @@ import '../../features/student/presentation/pages/student_qr_scanner_page.dart';
 import '../../features/student/presentation/pages/student_reports_page.dart';
 import '../../features/student/presentation/pages/student_report_detail_page.dart';
 import '../../features/student/presentation/pages/student_report_create_page.dart';
-import '../../features/student/presentation/pages/student_notification_page.dart';
-import '../../features/student/presentation/cubit/student_notification_cubit.dart';
+import '../../features/notifications/presentation/pages/notification_center_page.dart';
 import '../../features/student/presentation/student_navigation.dart';
 import '../../features/superadmin/presentation/pages/activity_log_page.dart';
 import '../../features/superadmin/presentation/pages/create_laboratory_page.dart';
@@ -160,6 +159,13 @@ GoRouter createAppRouter({required String initialLocation}) {
             child: ActivityLogPage(),
           );
         },
+      ),
+      GoRoute(
+        path: '/superadmin/notifications',
+        builder: (context, state) => const LabFlowAccountStatusGate(
+          requiredRole: 'superadmin',
+          child: NotificationCenterPage(role: 'superadmin'),
+        ),
       ),
       GoRoute(
         path: '/superadmin/profile',
@@ -364,15 +370,10 @@ GoRouter createAppRouter({required String initialLocation}) {
 
       GoRoute(
         path: '/student/notifications',
-        builder: (context, state) {
-          final notificationCubit = state.extra is StudentNotificationCubit
-              ? state.extra! as StudentNotificationCubit
-              : null;
-          return LabFlowAccountStatusGate(
-            requiredRole: 'student',
-            child: StudentNotificationPage(cubit: notificationCubit),
-          );
-        },
+        builder: (context, state) => const LabFlowAccountStatusGate(
+          requiredRole: 'student',
+          child: NotificationCenterPage(role: 'student'),
+        ),
       ),
 
       /// Area Lab Admin.
@@ -384,6 +385,13 @@ GoRouter createAppRouter({required String initialLocation}) {
             child: LabAdminDashboardPage(),
           );
         },
+      ),
+      GoRoute(
+        path: '/lab-admin/notifications',
+        builder: (context, state) => const LabFlowAccountStatusGate(
+          requiredRole: 'lab_admin',
+          child: NotificationCenterPage(role: 'lab_admin'),
+        ),
       ),
 
       /// Profile Lab Admin.

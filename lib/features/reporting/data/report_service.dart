@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../../../shared/data/student_notification_writer.dart';
 import '../domain/lab_report.dart';
 
 class ReportService {
@@ -123,8 +122,6 @@ class ReportService {
     } on FirebaseException catch (error) {
       throw _firebaseError(error, fallback: 'Laporan gagal diterima.');
     }
-
-    await StudentNotificationWriter(_firestore).report(reportId);
     return getReport(reportId);
   }
 
@@ -168,8 +165,6 @@ class ReportService {
         fallback: 'Penanganan laporan gagal dimulai.',
       );
     }
-
-    await StudentNotificationWriter(_firestore).report(reportId);
     return getReport(reportId);
   }
 
@@ -221,8 +216,6 @@ class ReportService {
     } on FirebaseException catch (error) {
       throw _firebaseError(error, fallback: 'Laporan gagal diselesaikan.');
     }
-
-    await StudentNotificationWriter(_firestore).report(reportId);
     return getReport(reportId);
   }
 
@@ -275,8 +268,6 @@ class ReportService {
     } on FirebaseException catch (error) {
       throw _firebaseError(error, fallback: 'Laporan gagal ditolak.');
     }
-
-    await StudentNotificationWriter(_firestore).report(reportId);
     return getReport(reportId);
   }
 
@@ -308,8 +299,6 @@ class ReportService {
     } on FirebaseException catch (error) {
       throw _firebaseError(error, fallback: 'Laporan gagal ditutup.');
     }
-
-    await StudentNotificationWriter(_firestore).report(reportId);
     return getReport(reportId);
   }
 

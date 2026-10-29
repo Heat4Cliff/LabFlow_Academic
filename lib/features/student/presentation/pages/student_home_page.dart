@@ -6,13 +6,12 @@ import '../../../../core/connectivity/connectivity_cubit.dart';
 import '../../../../core/connectivity/connectivity_state.dart';
 import '../../../../shared/presentation/states/labflow_offline_empty_state.dart';
 import '../../data/student_service.dart';
-import '../../data/student_notification_service.dart';
 import '../../domain/student_models.dart';
-import '../cubit/student_notification_cubit.dart';
-import '../cubit/student_notification_state.dart';
+import '../../../notifications/data/notification_center_service.dart';
+import '../../../notifications/presentation/cubit/notification_center_cubit.dart';
+import '../../../notifications/presentation/widgets/notification_bell_button.dart';
 import '../cubit/student_data_state.dart';
 import '../cubit/student_home_cubit.dart';
-import '../student_navigation.dart';
 import '../widgets/student_bottom_navigation.dart';
 import '../widgets/student_ui.dart';
 
@@ -26,7 +25,7 @@ class StudentHomePage extends StatelessWidget {
         BlocProvider(create: (_) => StudentHomeCubit(StudentService())..load()),
         BlocProvider(
           create: (_) =>
-              StudentNotificationCubit(StudentNotificationService())..start(),
+              NotificationCenterCubit(NotificationCenterService())..start(),
         ),
       ],
       child: const _StudentHomeView(),
@@ -137,75 +136,7 @@ class _StudentHomeView extends StatelessWidget {
                   ],
                 ),
               ),
-              BlocBuilder<StudentNotificationCubit, StudentNotificationState>(
-                buildWhen: (previous, current) =>
-                    previous.unreadCount != current.unreadCount,
-                builder: (context, notificationState) {
-                  final badge = studentNotificationBadgeLabel(
-                    notificationState.unreadCount,
-                  );
-                  return InkWell(
-                    onTap: () => context.push(
-                      '/student/notifications',
-                      extra: context.read<StudentNotificationCubit>(),
-                    ),
-                    borderRadius: BorderRadius.circular(999),
-                    child: SizedBox(
-                      width: 48,
-                      height: 48,
-                      child: Stack(
-                        clipBehavior: Clip.none,
-                        children: [
-                          const Positioned.fill(
-                            child: DecoratedBox(
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                              ),
-                              child: Icon(
-                                Icons.notifications_none_rounded,
-                                size: 27,
-                              ),
-                            ),
-                          ),
-                          if (badge != null)
-                            Positioned(
-                              top: -3,
-                              right: -4,
-                              child: Container(
-                                constraints: const BoxConstraints(
-                                  minWidth: 17,
-                                  minHeight: 17,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 4,
-                                  vertical: 1,
-                                ),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFFD92D20),
-                                  shape: BoxShape.rectangle,
-                                  borderRadius: BorderRadius.all(
-                                    Radius.circular(999),
-                                  ),
-                                ),
-                                alignment: Alignment.center,
-                                child: Text(
-                                  badge,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 9,
-                                    height: 1,
-                                    fontWeight: FontWeight.w900,
-                                  ),
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
+              const NotificationBellButton(role: 'student'),
             ],
           ),
           const SizedBox(height: 18),

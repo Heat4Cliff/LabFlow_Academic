@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../../../shared/data/student_notification_writer.dart';
 import '../domain/borrow_assignment.dart';
 
 class BorrowingAssignmentService {
@@ -328,8 +327,6 @@ class BorrowingAssignmentService {
           'updatedAt': FieldValue.serverTimestamp(),
         });
       });
-      await StudentNotificationWriter(_firestore)
-          .borrowing(cleanRequestId, 'borrow_waiting_pickup');
     } on FirebaseException catch (error) {
       if (error.code == 'permission-denied') {
         throw const BorrowingAssignmentException(

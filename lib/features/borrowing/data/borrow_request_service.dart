@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
-import '../../../shared/data/student_notification_writer.dart';
 import '../domain/borrow_request.dart';
 
 class BorrowRequestService {
@@ -130,8 +129,6 @@ class BorrowRequestService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     });
-    await StudentNotificationWriter(_firestore)
-        .borrowing(requestId, 'borrow_approved');
   }
 
   /// Menolak permintaan peminjaman dan menyimpan alasan penolakan.
@@ -177,8 +174,6 @@ class BorrowRequestService {
         'updatedAt': FieldValue.serverTimestamp(),
       });
     });
-    await StudentNotificationWriter(_firestore)
-        .borrowing(requestId, 'borrow_rejected');
   }
 }
 

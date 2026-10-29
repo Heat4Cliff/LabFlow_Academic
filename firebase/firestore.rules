@@ -600,6 +600,34 @@ service cloud.firestore {
         || validSelfProfileUpdate(userId);
     }
 
+    match /users/{userId}/fcmTokens/{tokenId} {
+      function validTokenRecord() {
+        return request.resource.data.keys().hasAll([
+            'fid', 'platform', 'createdAt', 'updatedAt'
+          ])
+          && request.resource.data.keys().hasOnly([
+            'fid', 'platform', 'createdAt', 'updatedAt'
+          ])
+          && request.resource.data.fid is string
+          && request.resource.data.fid.size() >= 20
+          && request.resource.data.fid.size() <= 4096
+          && request.resource.data.platform in ['android', 'ios']
+          && request.resource.data.createdAt is timestamp
+          && request.resource.data.updatedAt == request.time;
+      }
+
+      allow get, list: if isActive() && request.auth.uid == userId;
+      allow create: if isActive()
+        && request.auth.uid == userId
+        && validTokenRecord()
+        && request.resource.data.createdAt == request.time;
+      allow update: if isActive()
+        && request.auth.uid == userId
+        && validTokenRecord()
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if signedIn() && request.auth.uid == userId;
+    }
+
 
     // =========================================================
     // LABORATORIES
@@ -1163,59 +1191,22 @@ service cloud.firestore {
     }
 
     match /notifications/{notificationId} {
-      allow get, list: if isStudent()
-        && resource.data.studentId == request.auth.uid;
+      function ownsNotification(data) {
+        return ('recipientId' in data && data.recipientId == request.auth.uid)
+          || ('studentId' in data && data.studentId == request.auth.uid);
+      }
 
-      allow create: if
-        isLabAdmin()
-        && request.resource.data.keys().hasAll([
-          'studentId', 'type', 'title', 'body', 'targetType', 'targetId',
-          'labId', 'read', 'createdAt'
-        ])
-        && request.resource.data.keys().hasOnly([
-          'studentId', 'type', 'title', 'body', 'targetType', 'targetId',
-          'labId', 'read', 'createdAt'
-        ])
-        && request.resource.data.studentId is string
-        && request.resource.data.title is string
-        && request.resource.data.body is string
-        && request.resource.data.body.size() <= 180
-        && request.resource.data.read == false
-        && request.resource.data.createdAt == request.time
-        && hasActiveLabMembership(request.resource.data.labId)
-        && (
-          (
-            request.resource.data.targetType == 'borrow_request'
-            && request.resource.data.type in [
-              'borrow_approved', 'borrow_rejected', 'borrow_waiting_pickup',
-              'borrow_active', 'borrow_returned'
-            ]
-            && get(
-              /databases/$(database)/documents/borrow_requests/$(request.resource.data.targetId)
-            ).data.studentId == request.resource.data.studentId
-            && get(
-              /databases/$(database)/documents/borrow_requests/$(request.resource.data.targetId)
-            ).data.labId == request.resource.data.labId
-          )
-          ||
-          (
-            request.resource.data.targetType == 'report'
-            && request.resource.data.type in ['report_update', 'report_message']
-            && get(
-              /databases/$(database)/documents/reports/$(request.resource.data.targetId)
-            ).data.reporterId == request.resource.data.studentId
-            && get(
-              /databases/$(database)/documents/reports/$(request.resource.data.targetId)
-            ).data.labId == request.resource.data.labId
-          )
-        );
-
-      allow update: if isStudent()
-        && resource.data.studentId == request.auth.uid
-        && request.resource.data.studentId == resource.data.studentId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
-        && request.resource.data.read is bool;
-
+      allow get, list: if isActive() && ownsNotification(resource.data);
+      // Admin SDK only: clients cannot create notification documents.
+      allow create: if false;
+      allow update: if isActive()
+        && ownsNotification(resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['isRead', 'read'])
+        && (!('isRead' in request.resource.data)
+          || request.resource.data.isRead is bool)
+        && (!('read' in request.resource.data)
+          || request.resource.data.read is bool);
       allow delete: if false;
     }
 

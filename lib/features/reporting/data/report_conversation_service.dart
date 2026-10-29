@@ -4,7 +4,6 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../asset/data/asset_image_service.dart';
 import '../../../core/connectivity/connectivity_service.dart';
-import '../../../shared/data/student_notification_writer.dart';
 import '../domain/report_message.dart';
 
 class ReportConversationService {
@@ -100,17 +99,6 @@ class ReportConversationService {
           });
     } on FirebaseException catch (error) {
       throw ReportConversationException(_firestoreMessage(error));
-    }
-    if (role == 'lab_admin') {
-      try {
-        await StudentNotificationWriter(_firestore).report(
-          reportId,
-          message: true,
-          imageOnly: image != null && rawText.trim().isEmpty,
-        );
-      } on FirebaseException {
-        // Message creation is authoritative; notification delivery is auxiliary.
-      }
     }
   }
 

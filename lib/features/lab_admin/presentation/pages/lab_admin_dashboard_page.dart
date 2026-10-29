@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../shared/presentation/notifications/labflow_notification.dart';
@@ -15,6 +16,9 @@ import '../../../laboratory/domain/lab_membership.dart';
 import '../../../laboratory/domain/laboratory.dart';
 import '../../../maintenance/data/maintenance_service.dart';
 import '../../../maintenance/domain/maintenance_record.dart';
+import '../../../notifications/data/notification_center_service.dart';
+import '../../../notifications/presentation/cubit/notification_center_cubit.dart';
+import '../../../notifications/presentation/widgets/notification_bell_button.dart';
 import '../widgets/lab_admin_bottom_navigation.dart';
 
 class LabAdminDashboardPage extends StatefulWidget {
@@ -96,63 +100,67 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _paper,
-      body: SafeArea(
-        bottom: false,
-        child: FutureBuilder<UserProfile>(
-          future: _profileFuture,
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const LabFlowLoadingState(
-                title: 'Memuat dashboard',
-                message: 'Menyiapkan data akun Lab Admin.',
-              );
-            }
+    return BlocProvider(
+      create: (_) =>
+          NotificationCenterCubit(NotificationCenterService())..start(),
+      child: Scaffold(
+        backgroundColor: _paper,
+        body: SafeArea(
+          bottom: false,
+          child: FutureBuilder<UserProfile>(
+            future: _profileFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const LabFlowLoadingState(
+                  title: 'Memuat dashboard',
+                  message: 'Menyiapkan data akun Lab Admin.',
+                );
+              }
 
-            if (snapshot.hasError) {
-              final error = snapshot.error;
+              if (snapshot.hasError) {
+                final error = snapshot.error;
 
-              if (error is AuthServiceException && error.isAccountSuspended) {
-                return LabFlowSuspendedAccountState(
+                if (error is AuthServiceException && error.isAccountSuspended) {
+                  return LabFlowSuspendedAccountState(
+                    onAction: () {
+                      context.go('/login');
+                    },
+                  );
+                }
+
+                return const LabFlowConnectionErrorState(
+                  title: 'Dashboard tidak dapat dimuat',
+                  message:
+                      'Data akun Lab Admin tidak dapat diambil saat ini. '
+                      'Periksa koneksi Anda lalu coba lagi.',
+                );
+              }
+
+              final profile = snapshot.data;
+
+              if (profile == null) {
+                return _buildErrorState('Profil pengguna tidak ditemukan.');
+              }
+
+              if (!profile.isLabAdmin) {
+                return LabFlowAccessDeniedState(
+                  title: 'Akses Lab Admin ditolak',
+                  message:
+                      'Akun ini tidak memiliki role Lab Admin sehingga '
+                      'tidak dapat mengakses halaman Lab Admin.',
+                  actionLabel: 'Ke Halaman Saya',
                   onAction: () {
-                    context.go('/login');
+                    _goToOwnHome(profile);
                   },
                 );
               }
 
-              return const LabFlowConnectionErrorState(
-                title: 'Dashboard tidak dapat dimuat',
-                message:
-                    'Data akun Lab Admin tidak dapat diambil saat ini. '
-                    'Periksa koneksi Anda lalu coba lagi.',
-              );
-            }
-
-            final profile = snapshot.data;
-
-            if (profile == null) {
-              return _buildErrorState('Profil pengguna tidak ditemukan.');
-            }
-
-            if (!profile.isLabAdmin) {
-              return LabFlowAccessDeniedState(
-                title: 'Akses Lab Admin ditolak',
-                message:
-                    'Akun ini tidak memiliki role Lab Admin sehingga '
-                    'tidak dapat mengakses halaman Lab Admin.',
-                actionLabel: 'Ke Halaman Saya',
-                onAction: () {
-                  _goToOwnHome(profile);
-                },
-              );
-            }
-
-            return _buildMembershipContent(profile);
-          },
+              return _buildMembershipContent(profile);
+            },
+          ),
         ),
+        bottomNavigationBar: const LabAdminBottomNavigation(currentIndex: 0),
       ),
-      bottomNavigationBar: const LabAdminBottomNavigation(currentIndex: 0),
     );
   }
 
@@ -368,15 +376,7 @@ class _LabAdminDashboardPageState extends State<LabAdminDashboardPage> {
                       : _adminAvatarFallback(profile.fullName),
                 ),
                 const SizedBox(width: 8),
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.notifications_none_rounded),
-                ),
+                const NotificationBellButton(role: 'lab_admin'),
               ],
             ),
             const SizedBox(height: 18),

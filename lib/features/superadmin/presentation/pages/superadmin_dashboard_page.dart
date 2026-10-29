@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../../shared/presentation/notifications/labflow_notification.dart';
 import '../../../../shared/presentation/states/labflow_connection_error_state.dart';
 import '../../../../shared/presentation/states/labflow_loading_state.dart';
 import '../../../laboratory/data/laboratory_service.dart';
 import '../../../laboratory/domain/laboratory.dart';
+import '../../../notifications/data/notification_center_service.dart';
+import '../../../notifications/presentation/cubit/notification_center_cubit.dart';
+import '../../../notifications/presentation/widgets/notification_bell_button.dart';
 import '../../data/user_management_service.dart';
 import '../cubit/superadmin_dashboard_cubit.dart';
 import '../widgets/superadmin_bottom_navigation.dart';
@@ -22,10 +24,19 @@ class SuperadminDashboardPage extends StatefulWidget {
 class _SuperadminDashboardPageState extends State<SuperadminDashboardPage> {
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) =>
-          SuperadminDashboardCubit(UserManagementService(), LaboratoryService())
-            ..start(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (_) => SuperadminDashboardCubit(
+            UserManagementService(),
+            LaboratoryService(),
+          )..start(),
+        ),
+        BlocProvider(
+          create: (_) =>
+              NotificationCenterCubit(NotificationCenterService())..start(),
+        ),
+      ],
       child: BlocBuilder<SuperadminDashboardCubit, SuperadminDashboardState>(
         builder: (context, state) => Scaffold(
           backgroundColor: const Color(0xFFF6F9EF),
@@ -113,27 +124,7 @@ class _SuperadminDashboardPageState extends State<SuperadminDashboardPage> {
           ),
         ),
         const SizedBox(width: 16),
-        Material(
-          color: Colors.white,
-          shape: const CircleBorder(),
-          child: InkWell(
-            customBorder: const CircleBorder(),
-            onTap: () {
-              _showInformation(
-                title: 'Notifikasi belum tersedia',
-                message: 'Notifikasi Superadmin akan tersedia pada tahap berikutnya.',
-              );
-            },
-            child: const SizedBox(
-              width: 48,
-              height: 48,
-              child: Icon(
-                Icons.notifications_none_rounded,
-                color: Color(0xFF111111),
-              ),
-            ),
-          ),
-        ),
+        const NotificationBellButton(role: 'superadmin'),
       ],
     );
   }
@@ -336,15 +327,6 @@ class _SuperadminDashboardPageState extends State<SuperadminDashboardPage> {
           ),
         ],
       ),
-    );
-  }
-
-  void _showInformation({required String title, required String message}) {
-    showLabFlowNotification(
-      context: context,
-      title: title,
-      message: message,
-      type: LabFlowNotificationType.info,
     );
   }
 
