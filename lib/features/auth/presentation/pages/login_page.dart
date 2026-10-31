@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../../../../core/config/app_config.dart';
+import '../../../../core/config/superadmin_whatsapp_config.dart';
 import '../../../../core/validators/auth_validator.dart';
 import '../../../../shared/presentation/notifications/labflow_notification.dart';
 import '../../../../shared/presentation/states/labflow_suspended_account_state.dart';
@@ -61,18 +61,18 @@ class _LoginViewState extends State<_LoginView> {
     );
   }
 
-  /// Membuka WhatsApp Admin Lab bagi mahasiswa
+  /// Membuka WhatsApp Superadmin bagi mahasiswa
   /// yang belum memiliki akun LabFlow.
   Future<void> _contactAdmin() async {
-    final adminNumber = AppConfig.adminWhatsAppNumber.trim();
+    final superadminNumber = await SuperadminWhatsAppConfig().loadNumber();
 
-    if (adminNumber.isEmpty) {
+    if (superadminNumber == null) {
       if (!mounted) {
         return;
       }
 
       _showNotification(
-        'Nomor WhatsApp Admin Lab belum dikonfigurasi.',
+        'Kontak WhatsApp Superadmin belum dikonfigurasi.',
         title: 'Konfigurasi belum lengkap',
         type: LabFlowNotificationType.warning,
       );
@@ -81,10 +81,10 @@ class _LoginViewState extends State<_LoginView> {
     }
 
     const message =
-        'Halo Admin Lab, saya ingin meminta bantuan terkait akun LabFlow. '
+        'Halo Superadmin, saya ingin meminta bantuan terkait akun LabFlow. '
         'Saat ini saya belum memiliki akun untuk mengakses aplikasi.';
 
-    final uri = Uri.https('wa.me', '/$adminNumber', {'text': message});
+    final uri = Uri.https('wa.me', '/$superadminNumber', {'text': message});
 
     final opened = await launchUrl(uri, mode: LaunchMode.externalApplication);
 
@@ -447,7 +447,7 @@ class _LoginViewState extends State<_LoginView> {
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
             child: const Text(
-              'Hubungi Admin Lab',
+              'Hubungi Superadmin',
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
