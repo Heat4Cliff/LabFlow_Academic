@@ -64,7 +64,7 @@ class _LoginViewState extends State<_LoginView> {
   /// Membuka WhatsApp Superadmin bagi mahasiswa
   /// yang belum memiliki akun LabFlow.
   Future<void> _contactAdmin() async {
-    final superadminNumber = await SuperadminWhatsAppConfig().loadNumber();
+    final superadminNumber = SuperadminWhatsAppConfig.instance.number;
 
     if (superadminNumber == null) {
       if (!mounted) {

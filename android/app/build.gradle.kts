@@ -1,3 +1,13 @@
+import java.io.FileInputStream
+import java.util.Properties
+
+val keyPropertiesFile = sequenceOf(
+    rootProject.file("key.properties"),
+    rootProject.file("../key.properties"),
+).firstOrNull { it.isFile }
+val keyProperties = Properties()
+keyPropertiesFile?.let { FileInputStream(it).use(keyProperties::load) }
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -33,11 +43,45 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            if (keyPropertiesFile == null) {
+                throw GradleException(
+                    "Release signing is not configured: key.properties was not found. " +
+                        "Create android/key.properties with storeFile, storePassword, " +
+                        "keyAlias, and keyPassword."
+                )
+            }
+
+            val storeFilePath = keyProperties.getProperty("storeFile")?.trim()
+            val storePasswordValue = keyProperties.getProperty("storePassword")?.trim()
+            val keyAliasValue = keyProperties.getProperty("keyAlias")?.trim()
+            val keyPasswordValue = keyProperties.getProperty("keyPassword")?.trim()
+            if (listOf(storeFilePath, storePasswordValue, keyAliasValue, keyPasswordValue)
+                    .any { it.isNullOrEmpty() }) {
+                throw GradleException(
+                    "Release signing is not configured: key.properties must define " +
+                        "storeFile, storePassword, keyAlias, and keyPassword."
+                )
+            }
+
+            val signingFile = file(storeFilePath!!)
+            if (!signingFile.isFile) {
+                throw GradleException(
+                    "Release signing keystore was not found at the configured storeFile path."
+                )
+            }
+
+            storeFile = signingFile
+            storePassword = storePasswordValue
+            keyAlias = keyAliasValue
+            keyPassword = keyPasswordValue
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 }

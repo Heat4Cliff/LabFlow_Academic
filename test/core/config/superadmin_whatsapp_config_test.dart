@@ -52,9 +52,10 @@ void main() {
       fetchError: StateError('offline'),
     );
 
-    final number = await SuperadminWhatsAppConfig(reader: reader).loadNumber();
+    final config = SuperadminWhatsAppConfig.forTesting(reader);
+    await config.initialize();
 
-    expect(number, '6281234567890');
+    expect(config.number, '6281234567890');
     expect(reader.configureCalls, 1);
     expect(reader.fetchCalls, 1);
   });
@@ -62,6 +63,18 @@ void main() {
   test('returns null when Remote Config contains no valid contact', () async {
     final reader = _FakeRemoteConfigReader(value: 'not-a-number');
 
-    expect(await SuperadminWhatsAppConfig(reader: reader).loadNumber(), isNull);
+    final config = SuperadminWhatsAppConfig.forTesting(reader);
+    await config.initialize();
+    expect(config.number, isNull);
+  });
+
+  test('initialization is fetched only once per service instance', () async {
+    final reader = _FakeRemoteConfigReader(value: '+6281234567890');
+    final config = SuperadminWhatsAppConfig.forTesting(reader);
+
+    await Future.wait([config.initialize(), config.initialize()]);
+
+    expect(reader.configureCalls, 1);
+    expect(reader.fetchCalls, 1);
   });
 }

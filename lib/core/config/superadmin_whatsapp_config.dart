@@ -37,12 +37,26 @@ class FirebaseRemoteConfigReader implements RemoteConfigReader {
 }
 
 class SuperadminWhatsAppConfig {
-  SuperadminWhatsAppConfig({RemoteConfigReader? reader})
-    : _reader = reader ?? FirebaseRemoteConfigReader();
+  SuperadminWhatsAppConfig._(this._reader);
+
+  static final SuperadminWhatsAppConfig instance = SuperadminWhatsAppConfig._(
+    FirebaseRemoteConfigReader(),
+  );
+
+  SuperadminWhatsAppConfig.forTesting(RemoteConfigReader reader)
+    : this._(reader);
 
   final RemoteConfigReader _reader;
+  Future<void>? _initialization;
+  String? _number;
 
-  Future<String?> loadNumber() async {
+  String? get number => _number;
+
+  Future<void> initialize() {
+    return _initialization ??= _initialize();
+  }
+
+  Future<void> _initialize() async {
     try {
       await _reader.configure();
       await _reader.fetchAndActivate();
@@ -51,9 +65,9 @@ class SuperadminWhatsAppConfig {
     }
 
     try {
-      return normalize(_reader.getString(AppConfig.superadminWhatsAppKey));
+      _number = normalize(_reader.getString(AppConfig.superadminWhatsAppKey));
     } catch (_) {
-      return null;
+      _number = null;
     }
   }
 
