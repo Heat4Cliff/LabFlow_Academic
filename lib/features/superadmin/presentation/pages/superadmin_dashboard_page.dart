@@ -270,7 +270,7 @@ class _SuperadminDashboardPageState extends State<SuperadminDashboardPage> {
             icon: Icons.science_outlined,
             label: 'Kelola\nLaboratorium',
             onTap: () {
-              context.go('/superadmin/labs');
+              context.push('/superadmin/labs');
             },
           ),
         ),
@@ -279,7 +279,7 @@ class _SuperadminDashboardPageState extends State<SuperadminDashboardPage> {
             icon: Icons.people_outline_rounded,
             label: 'Kelola\nPengguna',
             onTap: () {
-              context.go('/superadmin/users');
+              context.push('/superadmin/users');
             },
           ),
         ),
@@ -297,7 +297,7 @@ class _SuperadminDashboardPageState extends State<SuperadminDashboardPage> {
             icon: Icons.history_rounded,
             label: 'Activity Log',
             onTap: () {
-              context.go('/superadmin/activity');
+              context.push('/superadmin/activity');
             },
           ),
         ),

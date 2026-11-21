@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../../core/validators/auth_validator.dart';
 import '../domain/email_change_request.dart';
+import 'auth_service.dart';
 
 class EmailChangeService {
   EmailChangeService({
@@ -138,7 +139,21 @@ class EmailChangeService {
     final expectedUid = user.uid;
 
     // Reload state dari server Firebase Authentication
-    await user.reload();
+    try {
+      await user.reload();
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-token-expired' || e.code == 'requires-recent-login') {
+        throw const EmailChangeException(
+          'Sesi verifikasi diperbarui di server. Silakan masuk ulang menggunakan email baru untuk menyelesaikan sinkronisasi.',
+          code: 'user-token-expired',
+        );
+      }
+      throw EmailChangeException(
+        'Gagal memuat ulang status akun: ${e.message ?? e.code}',
+        code: e.code,
+      );
+    }
+
     final reloadedUser = _auth.currentUser;
     if (reloadedUser == null) {
       throw const EmailChangeException('Gagal memuat ulang sesi pengguna.');
@@ -178,17 +193,114 @@ class EmailChangeService {
     }
 
     // Sinkronkan ke dokumen Firestore users/{uid}
-    await _firestore.collection('users').doc(reloadedUser.uid).update({
-      'email': requestedEmail,
-      'emailVerified': true,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    try {
+      await _firestore.collection('users').doc(reloadedUser.uid).update({
+        'email': requestedEmail,
+        'emailVerified': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+    } on FirebaseException catch (e) {
+      throw EmailChangeException(
+        'Gagal menyinkronkan email profil ke database (${e.code}). Silakan coba lagi.',
+        code: e.code,
+      );
+    } catch (e) {
+      throw EmailChangeException('Gagal menyinkronkan email profil: $e');
+    }
 
-    // Tandai request menjadi completed
-    await _collection.doc(request.id).update({
-      'status': 'completed',
-      'completedAt': FieldValue.serverTimestamp(),
-    });
+    // Bersihkan cache profil agar halaman Profil memuat email terbaru dari Firestore.
+    AuthService.clearProfileCache(reloadedUser.uid);
+
+    // Tandai request menjadi completed apabila belum selesai.
+    if (!request.isCompleted) {
+      try {
+        await _collection.doc(request.id).update({
+          'status': 'completed',
+          'completedAt': FieldValue.serverTimestamp(),
+        });
+      } on FirebaseException catch (e) {
+        throw EmailChangeException(
+          'Profil telah diperbarui, namun penyelesaian status permohonan gagal (${e.code}). Tekan Sinkronkan kembali untuk menyelesaikan.',
+          code: e.code,
+        );
+      } catch (e) {
+        throw EmailChangeException(
+          'Profil telah diperbarui, namun penyelesaian status permohonan gagal: $e',
+        );
+      }
+    }
+
+    return true;
+  }
+
+  /// Menyinkronkan dokumen `users/{uid}` dan permohonan `approved` apabila
+  /// Firebase Auth sudah menggunakan email baru yang terverifikasi, sementara
+  /// field `email` di Firestore masih menyimpan email lama.
+  ///
+  /// Aman dipanggil saat login ulang atau pemuatan profil; hanya berjalan bila
+  /// `authEmail != firestoreEmail` dan `user.emailVerified == true`.
+  static Future<bool> syncVerifiedAuthEmailIfNeeded({
+    required FirebaseAuth auth,
+    required FirebaseFirestore firestore,
+    required String firestoreEmail,
+    required bool isAccountActive,
+    bool invalidateCache = true,
+  }) async {
+    final user = auth.currentUser;
+    if (user == null || !isAccountActive) return false;
+
+    final authEmail = (user.email ?? '').trim().toLowerCase();
+    final currentDocEmail = firestoreEmail.trim().toLowerCase();
+    if (authEmail.isEmpty || authEmail == currentDocEmail) {
+      return false;
+    }
+
+    if (!user.emailVerified) {
+      return false;
+    }
+
+    try {
+      final token = await user.getIdToken(true);
+      if (token == null || token.isEmpty) {
+        return false;
+      }
+
+      await firestore.collection('users').doc(user.uid).update({
+        'email': authEmail,
+        'emailVerified': true,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+
+      if (invalidateCache) {
+        AuthService.clearProfileCache(user.uid);
+      }
+    } catch (_) {
+      return false;
+    }
+
+    try {
+      final approvedSnapshot = await firestore
+          .collection('email_change_requests')
+          .where('uid', isEqualTo: user.uid)
+          .where('status', isEqualTo: 'approved')
+          .get();
+
+      for (final doc in approvedSnapshot.docs) {
+        final requestedEmail =
+            (doc.data()['requestedEmail'] as String? ?? '').trim().toLowerCase();
+        if (requestedEmail == authEmail) {
+          await firestore
+              .collection('email_change_requests')
+              .doc(doc.id)
+              .update({
+                'status': 'completed',
+                'completedAt': FieldValue.serverTimestamp(),
+              });
+        }
+      }
+    } catch (_) {
+      // Penyelesaian status permohonan bersifat best-effort setelah users/{uid} sinkron.
+    }
 
     return true;
   }

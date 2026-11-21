@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../shared/presentation/notifications/labflow_notification.dart';
 import '../../data/student_service.dart';
 import '../../domain/student_models.dart';
+import '../student_navigation.dart';
 import '../cubit/student_catalog_cubit.dart';
 import '../cubit/student_catalog_state.dart';
 import '../cubit/student_data_state.dart';
@@ -12,12 +13,23 @@ import '../widgets/student_bottom_navigation.dart';
 import '../widgets/student_ui.dart';
 
 class StudentEquipmentPage extends StatelessWidget {
-  const StudentEquipmentPage({super.key});
+  const StudentEquipmentPage({super.key, this.cubit, this.service});
+
+  final StudentCatalogCubit? cubit;
+  final StudentService? service;
 
   @override
   Widget build(BuildContext context) {
+    final providedCubit = cubit;
+    if (providedCubit != null) {
+      return BlocProvider.value(
+        value: providedCubit,
+        child: const _StudentEquipmentView(),
+      );
+    }
+
     return BlocProvider(
-      create: (_) => StudentCatalogCubit(StudentService())..load(),
+      create: (_) => StudentCatalogCubit(service ?? StudentService())..load(),
       child: const _StudentEquipmentView(),
     );
   }
@@ -77,6 +89,26 @@ class _StudentEquipmentViewState extends State<_StudentEquipmentView> {
         children: [
           Row(
             children: [
+              if (context.canPop()) ...[
+                InkWell(
+                  onTap: () => studentPopOrGo(context, '/student'),
+                  borderRadius: BorderRadius.circular(999),
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.arrow_back_rounded,
+                      color: studentInk,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
               const Expanded(child: StudentPageTitle(title: 'Inventory')),
               InkWell(
                 borderRadius: BorderRadius.circular(999),
@@ -159,6 +191,7 @@ class _StudentEquipmentViewState extends State<_StudentEquipmentView> {
                 ),
               ),
               IconButton(
+                tooltip: 'Tampilan daftar',
                 visualDensity: VisualDensity.compact,
                 onPressed: () => setState(() => _grid = false),
                 icon: Icon(
@@ -167,6 +200,7 @@ class _StudentEquipmentViewState extends State<_StudentEquipmentView> {
                 ),
               ),
               IconButton(
+                tooltip: 'Tampilan grid',
                 visualDensity: VisualDensity.compact,
                 onPressed: () => setState(() => _grid = true),
                 icon: Icon(
@@ -176,7 +210,9 @@ class _StudentEquipmentViewState extends State<_StudentEquipmentView> {
               ),
             ],
           ),
-          const SizedBox(height: 5),
+          const SizedBox(height: 8),
+          _inventoryActions(context, state.assets),
+          const SizedBox(height: 10),
           if (assets.isEmpty)
             _empty(context)
           else if (_grid)
@@ -213,31 +249,38 @@ class _StudentEquipmentViewState extends State<_StudentEquipmentView> {
                 ),
               ),
             ),
-          if (!_grid && assets.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                TextButton(
-                  onPressed: () => _manualCode(context, state.assets),
-                  child: const Text('Input kode'),
-                ),
-                FilledButton.icon(
-                  onPressed: () => context.push('/student/scanner'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: studentLime,
-                    foregroundColor: studentInk,
-                    shape: const StadiumBorder(),
-                  ),
-                  icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
-                  label: const Text(
-                    'Scan QR',
-                    style: TextStyle(fontWeight: FontWeight.w900),
-                  ),
-                ),
-              ],
+        ],
+      ),
+    );
+  }
+
+  Widget _inventoryActions(BuildContext context, List<StudentAsset> assets) {
+    return SizedBox(
+      width: double.infinity,
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        runAlignment: WrapAlignment.end,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          TextButton(
+            onPressed: () => _manualCode(context, assets),
+            child: const Text('Input kode'),
+          ),
+          FilledButton.icon(
+            onPressed: () => context.push('/student/scanner'),
+            style: FilledButton.styleFrom(
+              backgroundColor: studentLime,
+              foregroundColor: studentInk,
+              shape: const StadiumBorder(),
             ),
-          ],
+            icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+            label: const Text(
+              'Scan QR',
+              style: TextStyle(fontWeight: FontWeight.w900),
+            ),
+          ),
         ],
       ),
     );
@@ -247,7 +290,6 @@ class _StudentEquipmentViewState extends State<_StudentEquipmentView> {
     BuildContext context,
     List<StudentAsset> assets,
   ) async {
-    final controller = TextEditingController();
     final code = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -255,72 +297,8 @@ class _StudentEquipmentViewState extends State<_StudentEquipmentView> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
       ),
-      builder: (sheetContext) {
-        return Padding(
-          padding: EdgeInsets.fromLTRB(
-            20,
-            16,
-            20,
-            20 + MediaQuery.viewInsetsOf(sheetContext).bottom,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 38,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: studentBorder,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 18),
-              const Text(
-                'Masukkan Kode Aset',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-              ),
-              const SizedBox(height: 5),
-              const Text(
-                'Kode tertera pada label aset, misalnya MKT-R01.',
-                style: TextStyle(fontSize: 11, color: studentMuted),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                textCapitalization: TextCapitalization.characters,
-                decoration: InputDecoration(
-                  labelText: 'Kode Aset',
-                  suffixIcon: const Icon(Icons.qr_code_scanner_rounded),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 14),
-              SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: FilledButton(
-                  onPressed: () =>
-                      Navigator.of(sheetContext).pop(controller.text),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: studentInk,
-                    foregroundColor: Colors.white,
-                    shape: const StadiumBorder(),
-                  ),
-                  child: const Text('Cari Aset'),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (_) => const _ManualCodeSheet(),
     );
-    controller.dispose();
     if (!context.mounted || code == null || code.trim().isEmpty) return;
     final normalized = code.trim().toLowerCase();
     StudentAsset? found;
@@ -402,6 +380,90 @@ class _StudentEquipmentViewState extends State<_StudentEquipmentView> {
             style: TextStyle(fontSize: 12, color: studentMuted),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ManualCodeSheet extends StatefulWidget {
+  const _ManualCodeSheet();
+
+  @override
+  State<_ManualCodeSheet> createState() => _ManualCodeSheetState();
+}
+
+class _ManualCodeSheetState extends State<_ManualCodeSheet> {
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        20,
+        16,
+        20,
+        20 + MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 38,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: studentBorder,
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            const Text(
+              'Masukkan Kode Aset',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 5),
+            const Text(
+              'Kode tertera pada label aset, misalnya MKT-R01.',
+              style: TextStyle(fontSize: 11, color: studentMuted),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              textCapitalization: TextCapitalization.characters,
+              decoration: InputDecoration(
+                labelText: 'Kode Aset',
+                suffixIcon: const Icon(Icons.qr_code_scanner_rounded),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: FilledButton(
+                onPressed: () => Navigator.of(context).pop(_controller.text),
+                style: FilledButton.styleFrom(
+                  backgroundColor: studentInk,
+                  foregroundColor: Colors.white,
+                  shape: const StadiumBorder(),
+                ),
+                child: const Text('Cari Aset'),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

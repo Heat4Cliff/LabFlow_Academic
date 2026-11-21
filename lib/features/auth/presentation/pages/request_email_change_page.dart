@@ -125,6 +125,7 @@ class _RequestEmailChangePageState extends State<RequestEmailChangePage> {
       final success = await _service.checkAndSyncVerifiedEmail(request);
       if (!mounted) return;
       if (success) {
+        setState(() {});
         showLabFlowNotification(
           context: context,
           title: 'Email Berhasil Diperbarui',

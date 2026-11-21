@@ -37,8 +37,13 @@ class _NotificationCenterView extends StatelessWidget {
   static const _resolver = NotificationRouteResolver();
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: _paper,
+  Widget build(BuildContext context) => PopScope<Object?>(
+    canPop: context.canPop(),
+    onPopInvokedWithResult: (didPop, _) {
+      if (!didPop && !context.canPop()) context.go(homePath);
+    },
+    child: Scaffold(
+      backgroundColor: _paper,
     appBar: AppBar(
       backgroundColor: _paper,
       title: const Text(
@@ -239,7 +244,8 @@ class _NotificationCenterView extends StatelessWidget {
         },
       ),
     ),
-  );
+  ),
+);
 
   IconData _icon(String entityType) => switch (entityType) {
     'borrow_request' => Icons.inventory_2_outlined,

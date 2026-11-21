@@ -88,13 +88,39 @@ class ReportConversationCubit extends Cubit<ReportConversationState> {
     }
   }
 
-  Future<void> delete(String messageId) async {
+  Future<bool> delete(String messageId) async {
     final id = _reportId;
-    if (id == null) return;
+    if (id == null || state.deletingIds.contains(messageId)) return false;
+    emit(
+      state.copyWith(
+        deletingIds: <String>{...state.deletingIds, messageId},
+        errorMessage: '',
+      ),
+    );
     try {
       await _service.softDelete(id, messageId);
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            deletingIds: state.deletingIds
+                .where((existing) => existing != messageId)
+                .toSet(),
+          ),
+        );
+      }
+      return true;
     } catch (_) {
-      emit(state.copyWith(errorMessage: 'Pesan tidak dapat dihapus.'));
+      if (!isClosed) {
+        emit(
+          state.copyWith(
+            deletingIds: state.deletingIds
+                .where((existing) => existing != messageId)
+                .toSet(),
+            errorMessage: 'Pesan tidak dapat dihapus.',
+          ),
+        );
+      }
+      return false;
     }
   }
 

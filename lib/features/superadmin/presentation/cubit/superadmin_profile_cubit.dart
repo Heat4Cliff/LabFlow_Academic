@@ -30,10 +30,14 @@ class SuperadminProfileCubit extends Cubit<SuperadminProfileState> {
 
   final AuthService _authService;
 
-  Future<void> load() async {
+  Future<void> load({bool forceRefresh = false}) async {
     emit(const SuperadminProfileLoading());
     try {
-      emit(SuperadminProfileLoaded(await _authService.getCurrentUserProfile()));
+      emit(
+        SuperadminProfileLoaded(
+          await _authService.getCurrentUserProfile(forceRefresh: forceRefresh),
+        ),
+      );
     } on AuthServiceException catch (error) {
       emit(SuperadminProfileFailure(isSuspended: error.isAccountSuspended));
     } catch (_) {

@@ -90,6 +90,26 @@ class _StudentBorrowingViewState extends State<_StudentBorrowingView> {
         children: [
           Row(
             children: [
+              if (context.canPop()) ...[
+                InkWell(
+                  onTap: () => studentPopOrGo(context, '/student'),
+                  borderRadius: BorderRadius.circular(999),
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.arrow_back_rounded,
+                      color: studentInk,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
               const Expanded(
                 child: Text(
                   'Pinjaman Saya',

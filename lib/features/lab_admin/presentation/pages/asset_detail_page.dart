@@ -10,29 +10,79 @@ import '../../../../shared/presentation/states/labflow_connection_error_state.da
 import '../../../../shared/presentation/states/labflow_loading_state.dart';
 import '../../../asset/data/asset_service.dart';
 import '../../../asset/domain/laboratory_asset.dart';
+import '../../../laboratory/data/laboratory_service.dart';
+import '../../data/asset_qr_print_service.dart';
 
 class AssetDetailPage extends StatefulWidget {
-  const AssetDetailPage({required this.assetId, super.key});
+  const AssetDetailPage({
+    required this.assetId,
+    this.assetService,
+    this.laboratoryService,
+    this.qrPrintService,
+    super.key,
+  });
 
   final String assetId;
+  final AssetService? assetService;
+  final LaboratoryService? laboratoryService;
+  final AssetQrPrintService? qrPrintService;
 
   @override
   State<AssetDetailPage> createState() => _AssetDetailPageState();
 }
 
-class _AssetDetailPageState extends State<AssetDetailPage> {
-  final AssetService _assetService = AssetService();
+class _AssetDetailData {
+  const _AssetDetailData({
+    required this.asset,
+    required this.laboratoryName,
+  });
 
-  late Future<LaboratoryAsset> _assetFuture;
+  final LaboratoryAsset asset;
+  final String laboratoryName;
+}
+
+class _AssetDetailPageState extends State<AssetDetailPage> {
+  late final AssetService _assetService;
+  late final LaboratoryService _laboratoryService;
+  late final AssetQrPrintService _qrPrintService;
+
+  late Future<_AssetDetailData> _assetFuture;
+  bool _isPrintingQr = false;
+  bool _isSharingQr = false;
+
+  bool get _isQrBusy => _isPrintingQr || _isSharingQr;
 
   @override
   void initState() {
     super.initState();
+    _assetService = widget.assetService ?? AssetService();
+    _laboratoryService = widget.laboratoryService ?? LaboratoryService();
+    _qrPrintService = widget.qrPrintService ?? AssetQrPrintService();
     _assetFuture = _loadAsset();
   }
 
-  Future<LaboratoryAsset> _loadAsset() {
-    return _assetService.getAsset(widget.assetId);
+  Future<_AssetDetailData> _loadAsset() async {
+    final asset = await _assetService.getAsset(widget.assetId);
+    final laboratoryName = await _resolveLaboratoryName(asset);
+    return _AssetDetailData(asset: asset, laboratoryName: laboratoryName);
+  }
+
+  Future<String> _resolveLaboratoryName(LaboratoryAsset asset) async {
+    final labId = asset.labId.trim();
+    if (labId.isEmpty) {
+      return asset.location.trim().isNotEmpty
+          ? asset.location.trim()
+          : 'Laboratorium LabFlow';
+    }
+    try {
+      final lab = await _laboratoryService.getLaboratory(labId);
+      if (lab.name.trim().isNotEmpty) {
+        return lab.name.trim();
+      }
+    } catch (_) {
+      // Fallback safely when laboratory metadata is temporarily unavailable.
+    }
+    return asset.location.trim().isNotEmpty ? asset.location.trim() : labId;
   }
 
   Future<void> _editAsset(LaboratoryAsset asset) async {
@@ -78,6 +128,95 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
     );
   }
 
+  Future<void> _printQr(LaboratoryAsset asset, String laboratoryName) async {
+    if (_isQrBusy) return;
+    setState(() => _isPrintingQr = true);
+
+    try {
+      final printed = await _qrPrintService.printAssetQrLabel(
+        asset: asset,
+        laboratoryName: laboratoryName,
+      );
+      if (!mounted) return;
+      showLabFlowNotification(
+        context: context,
+        title: printed ? 'Siap dicetak' : 'Pencetakan dibatalkan',
+        message: printed
+            ? 'Label QR PDF siap untuk dicetak.'
+            : 'Proses cetak label QR dibatalkan.',
+        type: printed
+            ? LabFlowNotificationType.success
+            : LabFlowNotificationType.info,
+      );
+    } on AssetQrPrintException catch (error) {
+      if (!mounted) return;
+      showLabFlowNotification(
+        context: context,
+        title: 'QR belum valid',
+        message: error.message,
+        type: LabFlowNotificationType.error,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      showLabFlowNotification(
+        context: context,
+        title: 'Gagal mencetak QR',
+        message: 'Terjadi kesalahan saat menyiapkan atau mencetak PDF label QR.',
+        type: LabFlowNotificationType.error,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isPrintingQr = false);
+      }
+    }
+  }
+
+  Future<void> _shareQrPdf(
+    LaboratoryAsset asset,
+    String laboratoryName,
+  ) async {
+    if (_isQrBusy) return;
+    setState(() => _isSharingQr = true);
+
+    try {
+      final shared = await _qrPrintService.shareAssetQrLabel(
+        asset: asset,
+        laboratoryName: laboratoryName,
+      );
+      if (!mounted) return;
+      showLabFlowNotification(
+        context: context,
+        title: shared ? 'PDF label siap' : 'Pembagian dibatalkan',
+        message: shared
+            ? 'Dokumen PDF label QR siap disimpan atau dibagikan.'
+            : 'Penyimpanan atau pembagian PDF dibatalkan.',
+        type: shared
+            ? LabFlowNotificationType.success
+            : LabFlowNotificationType.info,
+      );
+    } on AssetQrPrintException catch (error) {
+      if (!mounted) return;
+      showLabFlowNotification(
+        context: context,
+        title: 'QR belum valid',
+        message: error.message,
+        type: LabFlowNotificationType.error,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      showLabFlowNotification(
+        context: context,
+        title: 'Gagal membuat PDF',
+        message: 'Terjadi kesalahan saat menyiapkan dokumen PDF label QR.',
+        type: LabFlowNotificationType.error,
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSharingQr = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -97,7 +236,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
           ),
         ),
       ),
-      body: FutureBuilder<LaboratoryAsset>(
+      body: FutureBuilder<_AssetDetailData>(
         future: _assetFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -122,19 +261,19 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
             );
           }
 
-          final asset = snapshot.data;
+          final data = snapshot.data;
 
-          if (asset == null) {
+          if (data == null) {
             return _buildUnavailableState('Data aset tidak ditemukan.');
           }
 
-          return _buildContent(asset);
+          return _buildContent(data.asset, data.laboratoryName);
         },
       ),
     );
   }
 
-  Widget _buildContent(LaboratoryAsset asset) {
+  Widget _buildContent(LaboratoryAsset asset, String laboratoryName) {
     return SafeArea(
       child: SingleChildScrollView(
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 40),
@@ -179,7 +318,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
             const SizedBox(height: 16),
             _buildDescriptionCard(asset),
             const SizedBox(height: 16),
-            _buildQrCard(asset),
+            _buildQrCard(asset, laboratoryName),
             const SizedBox(height: 24),
             SizedBox(
               width: double.infinity,
@@ -349,7 +488,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
     );
   }
 
-  Widget _buildQrCard(LaboratoryAsset asset) {
+  Widget _buildQrCard(LaboratoryAsset asset, String laboratoryName) {
     final qrValue = asset.qrValue.trim();
 
     return Container(
@@ -390,7 +529,9 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
           Center(
             child: InkWell(
               borderRadius: BorderRadius.circular(18),
-              onTap: qrValue.isEmpty ? null : () => _showQrDialog(asset),
+              onTap: qrValue.isEmpty
+                  ? null
+                  : () => _showQrDialog(asset, laboratoryName),
               child: Container(
                 width: 224,
                 height: 224,
@@ -498,12 +639,70 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
               ],
             ),
           ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: FilledButton.icon(
+              onPressed: _isQrBusy
+                  ? null
+                  : () => _printQr(asset, laboratoryName),
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF111111),
+                foregroundColor: Colors.white,
+                shape: const StadiumBorder(),
+              ),
+              icon: _isPrintingQr
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.print_outlined, size: 18),
+              label: Text(
+                _isPrintingQr ? 'Menyiapkan...' : 'Cetak QR',
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            height: 46,
+            child: OutlinedButton.icon(
+              onPressed: _isQrBusy
+                  ? null
+                  : () => _shareQrPdf(asset, laboratoryName),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: const Color(0xFF111111),
+                side: const BorderSide(color: Color(0xFFDDE2D5)),
+                shape: const StadiumBorder(),
+              ),
+              icon: _isSharingQr
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.share_outlined, size: 18),
+              label: Text(
+                _isSharingQr ? 'Membuat PDF...' : 'Simpan / Bagikan PDF',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Future<void> _showQrDialog(LaboratoryAsset asset) async {
+  Future<void> _showQrDialog(
+    LaboratoryAsset asset,
+    String laboratoryName,
+  ) async {
     final qrValue = asset.qrValue.trim();
 
     if (qrValue.isEmpty) {
@@ -519,9 +718,10 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(22),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(22),
-            child: Column(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(22),
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
@@ -607,6 +807,29 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                 const SizedBox(height: 18),
                 SizedBox(
                   width: double.infinity,
+                  height: 48,
+                  child: FilledButton.icon(
+                    onPressed: _isQrBusy
+                        ? null
+                        : () {
+                            Navigator.of(dialogContext).pop();
+                            _printQr(asset, laboratoryName);
+                          },
+                    style: FilledButton.styleFrom(
+                      backgroundColor: const Color(0xFF111111),
+                      foregroundColor: Colors.white,
+                      shape: const StadiumBorder(),
+                    ),
+                    icon: const Icon(Icons.print_outlined, size: 18),
+                    label: const Text(
+                      'Cetak QR',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: () {
                       Navigator.of(dialogContext).pop();
@@ -617,6 +840,7 @@ class _AssetDetailPageState extends State<AssetDetailPage> {
                   ),
                 ),
               ],
+            ),
             ),
           ),
         );

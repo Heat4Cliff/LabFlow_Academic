@@ -120,72 +120,86 @@ class _SuperadminProfilePageState extends State<_SuperadminProfileView> {
   }
 
   Widget _buildContent(UserProfile profile) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Profil',
-            style: TextStyle(
-              fontSize: 31,
-              height: 1,
-              fontWeight: FontWeight.w800,
-              color: Color(0xFF111111),
+    return RefreshIndicator(
+      onRefresh: () =>
+          context.read<SuperadminProfileCubit>().load(forceRefresh: true),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Profil',
+              style: TextStyle(
+                fontSize: 31,
+                height: 1,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF111111),
+              ),
             ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Informasi akun Superadmin LabFlow.',
-            style: TextStyle(fontSize: 14, color: Color(0xFF7A8190)),
-          ),
-          const SizedBox(height: 28),
-          _buildIdentityCard(profile),
-          const SizedBox(height: 18),
-          ProfileMenuTile(
-            icon: Icons.edit_outlined,
-            title: 'Edit Profil',
-            onTap: () async {
-              final updated = await context.push<bool>(
-                '/superadmin/profile/edit',
-              );
-              if (updated == true && mounted) {
-                await context.read<SuperadminProfileCubit>().load();
-              }
-            },
-          ),
-          ProfileMenuTile(
-            icon: Icons.security_outlined,
-            title: 'Keamanan Akun',
-            onTap: () => context.push('/superadmin/profile/security'),
-          ),
-          ProfileMenuTile(
-            icon: Icons.menu_book_outlined,
-            title: 'Panduan Aplikasi',
-            onTap: () => context.push('/superadmin/profile/guide'),
-          ),
-          ProfileMenuTile(
-            icon: Icons.tune_rounded,
-            title: 'Pengaturan',
-            onTap: () => context.push('/superadmin/profile/settings'),
-          ),
-          ProfileMenuTile(
-            icon: Icons.science_outlined,
-            title: 'Tentang LabFlow',
-            onTap: () => context.push('/superadmin/profile/about'),
-          ),
-          const SizedBox(height: 18),
-          _buildAccountInformation(profile),
-          const SizedBox(height: 22),
-          _buildLogoutButton(),
-          const SizedBox(height: 18),
-          const Center(
-            child: Text(
-              'LabFlow · Versi 1.0.0',
-              style: TextStyle(fontSize: 12, color: Color(0xFF7A8190)),
+            const SizedBox(height: 8),
+            const Text(
+              'Informasi akun Superadmin LabFlow.',
+              style: TextStyle(fontSize: 14, color: Color(0xFF7A8190)),
             ),
-          ),
-        ],
+            const SizedBox(height: 28),
+            _buildIdentityCard(profile),
+            const SizedBox(height: 18),
+            ProfileMenuTile(
+              icon: Icons.edit_outlined,
+              title: 'Edit Profil',
+              onTap: () async {
+                final updated = await context.push<bool>(
+                  '/superadmin/profile/edit',
+                );
+                if (updated == true && mounted) {
+                  await context.read<SuperadminProfileCubit>().load(
+                    forceRefresh: true,
+                  );
+                }
+              },
+            ),
+            ProfileMenuTile(
+              icon: Icons.security_outlined,
+              title: 'Keamanan Akun',
+              onTap: () async {
+                await context.push('/superadmin/profile/security');
+                if (mounted) {
+                  await context.read<SuperadminProfileCubit>().load(
+                    forceRefresh: true,
+                  );
+                }
+              },
+            ),
+            ProfileMenuTile(
+              icon: Icons.menu_book_outlined,
+              title: 'Panduan Aplikasi',
+              onTap: () => context.push('/superadmin/profile/guide'),
+            ),
+            ProfileMenuTile(
+              icon: Icons.tune_rounded,
+              title: 'Pengaturan',
+              onTap: () => context.push('/superadmin/profile/settings'),
+            ),
+            ProfileMenuTile(
+              icon: Icons.science_outlined,
+              title: 'Tentang LabFlow',
+              onTap: () => context.push('/superadmin/profile/about'),
+            ),
+            const SizedBox(height: 18),
+            _buildAccountInformation(profile),
+            const SizedBox(height: 22),
+            _buildLogoutButton(),
+            const SizedBox(height: 18),
+            const Center(
+              child: Text(
+                'LabFlow · Versi 1.0.0',
+                style: TextStyle(fontSize: 12, color: Color(0xFF7A8190)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

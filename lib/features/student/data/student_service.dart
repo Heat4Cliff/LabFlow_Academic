@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../auth/data/auth_service.dart';
+import '../../auth/data/email_change_service.dart';
 import '../../../core/offline/borrow_draft_store.dart';
 import '../domain/student_models.dart';
 
@@ -63,7 +64,7 @@ class StudentService {
       throw const StudentServiceException('Profil mahasiswa tidak ditemukan.');
     }
 
-    final data = snapshot.data() ?? const <String, dynamic>{};
+    var data = snapshot.data() ?? const <String, dynamic>{};
     final role = (data['role'] as String? ?? '').trim();
     final status = (data['status'] as String? ?? 'active').trim();
 
@@ -77,6 +78,19 @@ class StudentService {
     if (role != 'student') {
       AuthService.clearProfileCache(uid);
       throw const StudentServiceException('Akun ini bukan akun Student.');
+    }
+
+    final synced = await EmailChangeService.syncVerifiedAuthEmailIfNeeded(
+      auth: _firebaseAuth,
+      firestore: _firestore,
+      firestoreEmail: (data['email'] as String? ?? '').trim(),
+      isAccountActive: true,
+    );
+    if (synced) {
+      final refreshed = await _firestore.collection('users').doc(uid).get();
+      if (refreshed.exists) {
+        data = refreshed.data() ?? data;
+      }
     }
 
     return StudentProfile(

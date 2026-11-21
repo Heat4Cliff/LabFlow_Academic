@@ -97,7 +97,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         builder: (context, state) {
           return const LabFlowAccountStatusGate(
             requiredRole: 'superadmin',
-            child: UserManagementPage(),
+            child: LabFlowBackFallback(
+              fallbackPath: '/superadmin',
+              child: UserManagementPage(),
+            ),
           );
         },
       ),
@@ -106,7 +109,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         builder: (context, state) {
           return const LabFlowAccountStatusGate(
             requiredRole: 'superadmin',
-            child: CreateUserPage(),
+            child: LabFlowBackFallback(
+              fallbackPath: '/superadmin/users',
+              child: CreateUserPage(),
+            ),
           );
         },
       ),
@@ -115,7 +121,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         builder: (context, state) {
           return const LabFlowAccountStatusGate(
             requiredRole: 'superadmin',
-            child: LaboratoryManagementPage(),
+            child: LabFlowBackFallback(
+              fallbackPath: '/superadmin',
+              child: LaboratoryManagementPage(),
+            ),
           );
         },
       ),
@@ -124,7 +133,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         builder: (context, state) {
           return const LabFlowAccountStatusGate(
             requiredRole: 'superadmin',
-            child: CreateLaboratoryPage(),
+            child: LabFlowBackFallback(
+              fallbackPath: '/superadmin/labs',
+              child: CreateLaboratoryPage(),
+            ),
           );
         },
       ),
@@ -133,7 +145,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         builder: (context, state) {
           return const LabFlowAccountStatusGate(
             requiredRole: 'superadmin',
-            child: LabMembershipPage(),
+            child: LabFlowBackFallback(
+              fallbackPath: '/superadmin',
+              child: LabMembershipPage(),
+            ),
           );
         },
       ),
@@ -144,7 +159,10 @@ GoRouter createAppRouter({required String initialLocation}) {
 
           return LabFlowAccountStatusGate(
             requiredRole: 'superadmin',
-            child: EditLaboratoryPage(laboratoryId: labId),
+            child: LabFlowBackFallback(
+              fallbackPath: '/superadmin/labs',
+              child: EditLaboratoryPage(laboratoryId: labId),
+            ),
           );
         },
       ),
@@ -155,7 +173,10 @@ GoRouter createAppRouter({required String initialLocation}) {
 
           return LabFlowAccountStatusGate(
             requiredRole: 'superadmin',
-            child: EditUserPage(userId: userId),
+            child: LabFlowBackFallback(
+              fallbackPath: '/superadmin/users',
+              child: EditUserPage(userId: userId),
+            ),
           );
         },
       ),
@@ -164,7 +185,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         builder: (context, state) {
           return const LabFlowAccountStatusGate(
             requiredRole: 'superadmin',
-            child: ActivityLogPage(),
+            child: LabFlowBackFallback(
+              fallbackPath: '/superadmin',
+              child: ActivityLogPage(),
+            ),
           );
         },
       ),
@@ -172,7 +196,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         path: '/superadmin/notifications',
         builder: (context, state) => const LabFlowAccountStatusGate(
           requiredRole: 'superadmin',
-          child: NotificationCenterPage(role: 'superadmin'),
+          child: LabFlowBackFallback(
+            fallbackPath: '/superadmin',
+            child: NotificationCenterPage(role: 'superadmin'),
+          ),
         ),
       ),
       GoRoute(
@@ -180,7 +207,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         builder: (context, state) {
           return const LabFlowAccountStatusGate(
             requiredRole: 'superadmin',
-            child: SuperadminProfilePage(),
+            child: LabFlowBackFallback(
+              fallbackPath: '/superadmin',
+              child: SuperadminProfilePage(),
+            ),
           );
         },
       ),
@@ -222,7 +252,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         path: '/superadmin/email-requests',
         builder: (context, state) => const LabFlowAccountStatusGate(
           requiredRole: 'superadmin',
-          child: SuperadminEmailRequestsPage(),
+          child: LabFlowBackFallback(
+            fallbackPath: '/superadmin',
+            child: SuperadminEmailRequestsPage(),
+          ),
         ),
       ),
       GoRoute(
@@ -262,7 +295,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         builder: (context, state) {
           return const LabFlowAccountStatusGate(
             requiredRole: 'student',
-            child: StudentEquipmentPage(),
+            child: LabFlowBackFallback(
+              fallbackPath: '/student',
+              child: StudentEquipmentPage(),
+            ),
           );
         },
       ),
@@ -292,7 +328,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         builder: (context, state) {
           return const LabFlowAccountStatusGate(
             requiredRole: 'student',
-            child: StudentBorrowingPage(),
+            child: LabFlowBackFallback(
+              fallbackPath: '/student',
+              child: StudentBorrowingPage(),
+            ),
           );
         },
       ),
@@ -335,7 +374,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         builder: (context, state) {
           return const LabFlowAccountStatusGate(
             requiredRole: 'student',
-            child: StudentReportsPage(),
+            child: LabFlowBackFallback(
+              fallbackPath: '/student',
+              child: StudentReportsPage(),
+            ),
           );
         },
       ),
@@ -356,7 +398,10 @@ GoRouter createAppRouter({required String initialLocation}) {
 
           return LabFlowAccountStatusGate(
             requiredRole: 'student',
-            child: StudentReportDetailPage(reportId: reportId),
+            child: LabFlowBackFallback(
+              fallbackPath: '/student/reports',
+              child: StudentReportDetailPage(reportId: reportId),
+            ),
           );
         },
       ),
@@ -365,7 +410,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         builder: (context, state) {
           return const LabFlowAccountStatusGate(
             requiredRole: 'student',
-            child: StudentProfilePage(),
+            child: LabFlowBackFallback(
+              fallbackPath: '/student',
+              child: StudentProfilePage(),
+            ),
           );
         },
       ),
@@ -429,7 +477,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         path: '/student/notifications',
         builder: (context, state) => const LabFlowAccountStatusGate(
           requiredRole: 'student',
-          child: NotificationCenterPage(role: 'student'),
+          child: LabFlowBackFallback(
+            fallbackPath: '/student',
+            child: NotificationCenterPage(role: 'student'),
+          ),
         ),
       ),
 
@@ -447,7 +498,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         path: '/lab-admin/notifications',
         builder: (context, state) => const LabFlowAccountStatusGate(
           requiredRole: 'lab_admin',
-          child: NotificationCenterPage(role: 'lab_admin'),
+          child: LabFlowBackFallback(
+            fallbackPath: '/lab-admin',
+            child: NotificationCenterPage(role: 'lab_admin'),
+          ),
         ),
       ),
 
@@ -457,7 +511,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         builder: (context, state) {
           return const LabFlowAccountStatusGate(
             requiredRole: 'lab_admin',
-            child: LabAdminProfilePage(),
+            child: LabFlowBackFallback(
+              fallbackPath: '/lab-admin',
+              child: LabAdminProfilePage(),
+            ),
           );
         },
       ),
@@ -523,7 +580,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         builder: (context, state) {
           return const LabFlowAccountStatusGate(
             requiredRole: 'lab_admin',
-            child: AdminBorrowRequestsPage(),
+            child: LabFlowBackFallback(
+              fallbackPath: '/lab-admin',
+              child: AdminBorrowRequestsPage(),
+            ),
           );
         },
       ),
@@ -618,7 +678,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         builder: (context, state) {
           return const LabFlowAccountStatusGate(
             requiredRole: 'lab_admin',
-            child: MaintenanceListPage(),
+            child: LabFlowBackFallback(
+              fallbackPath: '/lab-admin',
+              child: MaintenanceListPage(),
+            ),
           );
         },
       ),
@@ -666,7 +729,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         builder: (context, state) {
           return const LabFlowAccountStatusGate(
             requiredRole: 'lab_admin',
-            child: AdminReportListPage(),
+            child: LabFlowBackFallback(
+              fallbackPath: '/lab-admin',
+              child: AdminReportListPage(),
+            ),
           );
         },
       ),
@@ -691,7 +757,10 @@ GoRouter createAppRouter({required String initialLocation}) {
         builder: (context, state) {
           return const LabFlowAccountStatusGate(
             requiredRole: 'lab_admin',
-            child: AssetManagementPage(),
+            child: LabFlowBackFallback(
+              fallbackPath: '/lab-admin',
+              child: AssetManagementPage(),
+            ),
           );
         },
       ),

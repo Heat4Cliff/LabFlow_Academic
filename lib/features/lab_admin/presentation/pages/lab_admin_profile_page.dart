@@ -116,7 +116,12 @@ class _LabAdminProfileView extends StatelessWidget {
           ProfileMenuTile(
             icon: Icons.security_outlined,
             title: 'Keamanan Akun',
-            onTap: () => context.push('/lab-admin/profile/security'),
+            onTap: () async {
+              await context.push('/lab-admin/profile/security');
+              if (context.mounted) {
+                await context.read<LabAdminProfileCubit>().load();
+              }
+            },
           ),
           ProfileMenuTile(
             icon: Icons.menu_book_outlined,

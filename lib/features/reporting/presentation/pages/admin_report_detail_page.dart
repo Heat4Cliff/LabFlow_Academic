@@ -9,6 +9,7 @@ import '../../../../shared/presentation/states/labflow_connection_error_state.da
 import '../../../../shared/presentation/states/labflow_loading_state.dart';
 import '../../data/report_service.dart';
 import '../../domain/lab_report.dart';
+import '../cubit/report_conversation_cubit.dart';
 import '../cubit/report_detail_cubit.dart';
 import '../cubit/report_detail_state.dart';
 import '../widgets/report_conversation_panel.dart';
@@ -16,21 +17,34 @@ import '../widgets/report_detail_widgets.dart';
 import '../widgets/report_priority_control.dart';
 
 class AdminReportDetailPage extends StatelessWidget {
-  const AdminReportDetailPage({required this.reportId, super.key});
+  const AdminReportDetailPage({
+    required this.reportId,
+    this.cubit,
+    this.conversationCubit,
+    super.key,
+  });
 
   final String reportId;
+  final ReportDetailCubit? cubit;
+  final ReportConversationCubit? conversationCubit;
 
   @override
   Widget build(BuildContext context) {
+    final view = _AdminReportDetailView(conversationCubit: conversationCubit);
+    if (cubit != null) {
+      return BlocProvider.value(value: cubit!, child: view);
+    }
     return BlocProvider(
       create: (_) => ReportDetailCubit(ReportService())..load(reportId),
-      child: const _AdminReportDetailView(),
+      child: view,
     );
   }
 }
 
 class _AdminReportDetailView extends StatelessWidget {
-  const _AdminReportDetailView();
+  const _AdminReportDetailView({this.conversationCubit});
+
+  final ReportConversationCubit? conversationCubit;
 
   @override
   Widget build(BuildContext context) {
@@ -101,109 +115,105 @@ class _AdminReportDetailView extends StatelessWidget {
     final report = state.report!;
     final statusPalette = _statusPalette(report.status);
 
-    return SafeArea(
-      top: false,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 36),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return ReportDetailConversationLayout(
+      reportId: report.id,
+      cubit: conversationCubit,
+      backgroundColor: const Color(0xFFF6F9EF),
+      detailPadding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+      horizontalPadding: 20,
+      detailChildren: [
+        Center(
+          child: Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 8,
+            ),
+            decoration: BoxDecoration(
+              color: statusPalette.background,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              _statusLabel(report.status),
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                color: statusPalette.foreground,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        AdminReportHero(report: report),
+        const SizedBox(height: 14),
+        Row(
           children: [
-            Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: statusPalette.background,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  _statusLabel(report.status),
-                  style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    color: statusPalette.foreground,
-                  ),
-                ),
+            Expanded(
+              child: ReportDetailSmallCard(
+                label: 'Priority',
+                value: reportPriorityLabel(report.priority),
+                icon: Icons.flag_outlined,
               ),
             ),
-            const SizedBox(height: 16),
-            AdminReportHero(report: report),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: ReportDetailSmallCard(
-                    label: 'Priority',
-                    value: reportPriorityLabel(report.priority),
-                    icon: Icons.flag_outlined,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ReportDetailSmallCard(
-                    label: 'Severity',
-                    value: report.severity == 'urgent' ? 'Urgent' : 'Normal',
-                    icon: Icons.warning_amber_rounded,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ReportDetailInfoCard(
-              icon: Icons.place_outlined,
-              label: 'Lokasi',
-              value: report.location,
-            ),
-            const SizedBox(height: 12),
-            ReportDetailInfoCard(
-              icon: Icons.description_outlined,
-              label: 'Deskripsi',
-              value: report.description,
-            ),
-            const SizedBox(height: 12),
-            ReportDetailInfoCard(
-              icon: Icons.person_outline_rounded,
-              label: 'Pelapor',
-              value: report.reporterNameLabel,
-            ),
-            if (report.assetName != null) ...[
-              const SizedBox(height: 12),
-              ReportDetailInfoCard(
-                icon: Icons.inventory_2_outlined,
-                label: 'Aset',
-                value: report.assetCode?.isNotEmpty == true
-                    ? '${report.assetName} · Kode: ${report.assetCode}'
-                    : report.assetName!,
+            const SizedBox(width: 12),
+            Expanded(
+              child: ReportDetailSmallCard(
+                label: 'Severity',
+                value: report.severity == 'urgent' ? 'Urgent' : 'Normal',
+                icon: Icons.warning_amber_rounded,
               ),
-            ],
-            if (report.adminResponse != null) ...[
-              const SizedBox(height: 12),
-              ReportDetailInfoCard(
-                icon: Icons.chat_bubble_outline_rounded,
-                label: 'Tanggapan Lab Admin',
-                value: report.adminResponse!,
-              ),
-            ],
-            const SizedBox(height: 18),
-            AdminReportTimeline(report: report),
-            const SizedBox(height: 22),
-            if (!report.isResolved && !report.isRejected && !report.isClosed)
-              ReportPriorityControl(state: state, report: report),
-            if (!report.isResolved && !report.isRejected && !report.isClosed)
-              const SizedBox(height: 16),
-            if (report.isAssetRelated &&
-                (report.isAcknowledged || report.isInProgress)) ...[
-              _maintenanceButton(context, report),
-              const SizedBox(height: 12),
-            ],
-            ReportConversationPanel(reportId: report.id),
-            const SizedBox(height: 16),
-            _actionArea(context, state, report),
+            ),
           ],
         ),
-      ),
+        const SizedBox(height: 12),
+        ReportDetailInfoCard(
+          icon: Icons.place_outlined,
+          label: 'Lokasi',
+          value: report.location,
+        ),
+        const SizedBox(height: 12),
+        ReportDetailInfoCard(
+          icon: Icons.description_outlined,
+          label: 'Deskripsi',
+          value: report.description,
+        ),
+        const SizedBox(height: 12),
+        ReportDetailInfoCard(
+          icon: Icons.person_outline_rounded,
+          label: 'Pelapor',
+          value: report.reporterNameLabel,
+        ),
+        if (report.assetName != null) ...[
+          const SizedBox(height: 12),
+          ReportDetailInfoCard(
+            icon: Icons.inventory_2_outlined,
+            label: 'Aset',
+            value: report.assetCode?.isNotEmpty == true
+                ? '${report.assetName} · Kode: ${report.assetCode}'
+                : report.assetName!,
+          ),
+        ],
+        if (report.adminResponse != null) ...[
+          const SizedBox(height: 12),
+          ReportDetailInfoCard(
+            icon: Icons.chat_bubble_outline_rounded,
+            label: 'Tanggapan Lab Admin',
+            value: report.adminResponse!,
+          ),
+        ],
+        const SizedBox(height: 18),
+        AdminReportTimeline(report: report),
+        const SizedBox(height: 22),
+        if (!report.isResolved && !report.isRejected && !report.isClosed)
+          ReportPriorityControl(state: state, report: report),
+        if (!report.isResolved && !report.isRejected && !report.isClosed)
+          const SizedBox(height: 16),
+        if (report.isAssetRelated &&
+            (report.isAcknowledged || report.isInProgress)) ...[
+          _maintenanceButton(context, report),
+          const SizedBox(height: 12),
+        ],
+        _actionArea(context, state, report),
+      ],
     );
   }
 

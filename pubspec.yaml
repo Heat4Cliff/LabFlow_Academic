@@ -52,6 +52,8 @@ dependencies:
   firebase_messaging: 17.0.1
   flutter_local_notifications: 22.3.3
   crypto: 3.0.7
+  pdf: ^3.13.1
+  printing: ^5.15.1
 
 dev_dependencies:
   flutter_test:

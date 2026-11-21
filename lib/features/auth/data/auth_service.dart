@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../../core/session/app_session_manager.dart';
 import '../../../core/validators/auth_validator.dart';
 import '../domain/user_profile.dart';
+import 'email_change_service.dart';
 
 class AuthService {
   AuthService({
@@ -216,6 +217,30 @@ class AuthService {
         'Role akun tidak dikenali.',
         code: AuthServiceException.invalidRole,
       );
+    }
+
+    final synced = await EmailChangeService.syncVerifiedAuthEmailIfNeeded(
+      auth: _firebaseAuth,
+      firestore: _firestore,
+      firestoreEmail: profile.email,
+      isAccountActive: profile.isActive,
+      invalidateCache: false,
+    );
+    if (synced) {
+      final refreshedDocument = await _firestore
+          .collection('users')
+          .doc(expectedUid)
+          .get();
+      final activeUidAfterSync = _firebaseAuth.currentUser?.uid;
+      if (activeUidAfterSync == null || activeUidAfterSync != expectedUid) {
+        throw const AuthServiceException(
+          'Sesi login telah berubah. Silakan masuk kembali.',
+          code: AuthServiceException.sessionNotFound,
+        );
+      }
+      if (refreshedDocument.exists) {
+        return UserProfile.fromDocument(refreshedDocument);
+      }
     }
 
     return profile;

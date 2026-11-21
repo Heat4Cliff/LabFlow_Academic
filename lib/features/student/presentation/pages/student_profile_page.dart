@@ -155,7 +155,12 @@ class _StudentProfileView extends StatelessWidget {
           ProfileMenuTile(
             icon: Icons.security_outlined,
             title: 'Keamanan Akun',
-            onTap: () => context.push('/student/profile/security'),
+            onTap: () async {
+              await context.push('/student/profile/security');
+              if (context.mounted) {
+                await context.read<StudentProfileCubit>().load();
+              }
+            },
           ),
           ProfileMenuTile(
             icon: Icons.menu_book_outlined,

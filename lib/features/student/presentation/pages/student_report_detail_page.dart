@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../reporting/presentation/cubit/report_conversation_cubit.dart';
 import '../../../reporting/presentation/widgets/report_conversation_panel.dart';
 import '../../data/student_report_service.dart';
 import '../cubit/student_report_detail_cubit.dart';
@@ -9,20 +10,42 @@ import '../student_navigation.dart';
 import '../widgets/student_ui.dart';
 
 class StudentReportDetailPage extends StatelessWidget {
-  const StudentReportDetailPage({required this.reportId, super.key});
+  const StudentReportDetailPage({
+    required this.reportId,
+    this.cubit,
+    this.conversationCubit,
+    super.key,
+  });
+
   final String reportId;
+  final StudentReportDetailCubit? cubit;
+  final ReportConversationCubit? conversationCubit;
 
   @override
-  Widget build(BuildContext context) => BlocProvider(
-    create: (_) =>
-        StudentReportDetailCubit(StudentReportService())..watch(reportId),
-    child: _StudentReportDetailView(reportId: reportId),
-  );
+  Widget build(BuildContext context) {
+    final view = _StudentReportDetailView(
+      reportId: reportId,
+      conversationCubit: conversationCubit,
+    );
+    if (cubit != null) {
+      return BlocProvider.value(value: cubit!, child: view);
+    }
+    return BlocProvider(
+      create: (_) =>
+          StudentReportDetailCubit(StudentReportService())..watch(reportId),
+      child: view,
+    );
+  }
 }
 
 class _StudentReportDetailView extends StatelessWidget {
-  const _StudentReportDetailView({required this.reportId});
+  const _StudentReportDetailView({
+    required this.reportId,
+    this.conversationCubit,
+  });
+
   final String reportId;
+  final ReportConversationCubit? conversationCubit;
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +54,7 @@ class _StudentReportDetailView extends StatelessWidget {
       child: Scaffold(
         backgroundColor: studentPaper,
         body: SafeArea(
+          bottom: false,
           child: BlocBuilder<StudentReportDetailCubit, StudentReportDetailState>(
             builder: (context, state) {
               if (state.status == StudentReportDetailStatus.initial ||
@@ -46,9 +70,13 @@ class _StudentReportDetailView extends StatelessWidget {
                 );
               }
               final report = state.report!;
-              return ListView(
-                padding: const EdgeInsets.fromLTRB(18, 14, 18, 28),
-                children: [
+              return ReportDetailConversationLayout(
+                reportId: report.id,
+                cubit: conversationCubit,
+                backgroundColor: studentPaper,
+                detailPadding: const EdgeInsets.fromLTRB(18, 14, 18, 0),
+                horizontalPadding: 18,
+                detailChildren: [
                   StudentBackHeader(
                     title: 'Detail Laporan',
                     onBack: () => studentPopOrGo(context, '/student/reports'),
@@ -136,8 +164,6 @@ class _StudentReportDetailView extends StatelessWidget {
                     report.acknowledgedAt,
                     report.resolvedAt,
                   ),
-                  const SizedBox(height: 18),
-                  ReportConversationPanel(reportId: report.id),
                 ],
               );
             },

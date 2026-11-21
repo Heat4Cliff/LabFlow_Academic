@@ -209,12 +209,12 @@ class _StudentHomeView extends StatelessWidget {
               _quickAction(
                 icon: Icons.search_rounded,
                 label: 'Cari Peralatan',
-                onTap: () => context.go('/student/assets'),
+                onTap: () => context.push('/student/assets'),
               ),
               _quickAction(
                 icon: Icons.handshake_outlined,
                 label: 'Pinjaman Saya',
-                onTap: () => context.go('/student/borrowing'),
+                onTap: () => context.push('/student/borrowing'),
               ),
               _quickAction(
                 icon: Icons.assignment_outlined,
@@ -237,7 +237,7 @@ class _StudentHomeView extends StatelessWidget {
                 ),
               ),
               TextButton(
-                onPressed: () => context.go('/student/borrowing'),
+                onPressed: () => context.push('/student/borrowing'),
                 child: const Text('Lihat Semua'),
               ),
             ],

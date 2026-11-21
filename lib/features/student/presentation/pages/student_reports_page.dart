@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/student_report_service.dart';
 import '../../../reporting/domain/lab_report.dart';
+import '../student_navigation.dart';
 import '../cubit/student_data_state.dart';
 import '../cubit/student_reports_cubit.dart';
 import '../widgets/student_bottom_navigation.dart';
@@ -78,6 +79,26 @@ class _StudentReportsViewState extends State<_StudentReportsView> {
         children: [
           Row(
             children: [
+              if (context.canPop()) ...[
+                InkWell(
+                  onTap: () => studentPopOrGo(context, '/student'),
+                  borderRadius: BorderRadius.circular(999),
+                  child: Container(
+                    width: 42,
+                    height: 42,
+                    decoration: const BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.arrow_back_rounded,
+                      color: studentInk,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+              ],
               const Expanded(
                 child: Text(
                   'Laporan',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../shared/presentation/navigation/labflow_back_fallback.dart';
 import '../../../../shared/presentation/states/labflow_connection_error_state.dart';
 import '../../../../shared/presentation/states/labflow_loading_state.dart';
 import '../../../lab_admin/presentation/widgets/lab_admin_bottom_navigation.dart';
@@ -77,15 +78,30 @@ class _AdminReportListView extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.fromLTRB(20, 14, 20, 14),
-          child: Text(
-            'Laporan',
-            style: TextStyle(
-              fontSize: 26,
-              fontWeight: FontWeight.w900,
-              color: Color(0xFF111111),
-            ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 14),
+          child: Row(
+            children: [
+              if (context.canPop()) ...[
+                IconButton(
+                  tooltip: 'Kembali',
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: Color(0xFF111111),
+                  ),
+                  onPressed: () => popOrGo(context, '/lab-admin'),
+                ),
+                const SizedBox(width: 8),
+              ],
+              const Text(
+                'Laporan',
+                style: TextStyle(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  color: Color(0xFF111111),
+                ),
+              ),
+            ],
           ),
         ),
         Padding(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../shared/presentation/navigation/labflow_back_fallback.dart';
 import '../../../../shared/presentation/notifications/labflow_notification.dart';
 import '../../../../shared/presentation/states/labflow_connection_error_state.dart';
 import '../../../../shared/presentation/states/labflow_loading_state.dart';
@@ -132,6 +133,17 @@ class _UserManagementPageState extends State<_UserManagementView> {
   Widget _buildHeader() {
     return Row(
       children: [
+        if (context.canPop()) ...[
+          IconButton(
+            tooltip: 'Kembali',
+            icon: const Icon(
+              Icons.arrow_back_rounded,
+              color: Color(0xFF111111),
+            ),
+            onPressed: () => popOrGo(context, '/superadmin'),
+          ),
+          const SizedBox(width: 8),
+        ],
         const Expanded(
           child: Text(
             'Pengguna',

@@ -7,6 +7,7 @@ import '../../../../core/connectivity/connectivity_state.dart';
 import '../../../../core/offline/admin_entity_draft_store.dart';
 import '../../../../core/offline/conflict_resolution.dart';
 import '../../../../shared/presentation/dialogs/labflow_conflict_resolution_dialog.dart';
+import '../../../../shared/presentation/navigation/labflow_back_fallback.dart';
 import '../../../../shared/presentation/notifications/labflow_notification.dart';
 import '../../../../shared/presentation/states/labflow_connection_error_state.dart';
 import '../../../../shared/presentation/states/labflow_loading_state.dart';
@@ -275,6 +276,16 @@ class _AssetManagementViewState extends State<_AssetManagementView> {
       backgroundColor: const Color(0xFFF6F9EF),
       elevation: 0,
       surfaceTintColor: Colors.transparent,
+      leading: context.canPop()
+          ? IconButton(
+              tooltip: 'Kembali',
+              icon: const Icon(
+                Icons.arrow_back_rounded,
+                color: Color(0xFF111111),
+              ),
+              onPressed: () => popOrGo(context, '/lab-admin'),
+            )
+          : null,
       title: const Text(
         'Inventaris Aset',
         style: TextStyle(fontWeight: FontWeight.w800, color: Color(0xFF111111)),

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../auth/data/auth_service.dart';
+import '../../auth/data/email_change_service.dart';
 import '../domain/lab_admin_profile.dart';
 
 class LabAdminProfileService {
@@ -33,7 +34,7 @@ class LabAdminProfileService {
         );
       }
 
-      final userData = userSnapshot.data();
+      var userData = userSnapshot.data();
 
       if (userData == null) {
         throw const LabAdminProfileException(
@@ -54,6 +55,22 @@ class LabAdminProfileService {
       if (role != 'lab_admin') {
         AuthService.clearProfileCache(user.uid);
         throw const LabAdminProfileException('Akun ini bukan akun Lab Admin.');
+      }
+
+      final synced = await EmailChangeService.syncVerifiedAuthEmailIfNeeded(
+        auth: _firebaseAuth,
+        firestore: _firestore,
+        firestoreEmail: (userData['email'] as String? ?? '').trim(),
+        isAccountActive: true,
+      );
+      if (synced) {
+        final refreshed = await _firestore
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        if (refreshed.exists && refreshed.data() != null) {
+          userData = refreshed.data()!;
+        }
       }
 
       final membershipsSnapshot = await _firestore
